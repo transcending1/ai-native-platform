@@ -1,6 +1,8 @@
+import base64
 import os
 
 import pytest
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from ai_native_core.model import last_model
 
@@ -31,6 +33,38 @@ async def test_tencent_model():
                     "last_temperature": 0,
                     "last_max_tokens": 512,
                     "last_api_key": os.getenv('TENCENT_DEEPSEEK_TOKEN')
+                }
+            },
+    ):
+        print(chunk.content, end='')
+
+
+@pytest.mark.asyncio
+async def test_dou_bao_vision_model():
+    with open("files/test.jpg", "rb") as image_file:
+        base64_image = base64.b64encode(image_file.read()).decode('utf-8')
+    system_message = SystemMessage(
+        content="你是一个图片内容提取专家，擅长提取图片中的内容，理解图片中的内容。保留图片中的所有细节和信息，尽可能全面地描述图片中的内容。"
+                "用markdown的格式输出图片内容，包含图片的描述和相关信息。",
+    )
+    message = HumanMessage(
+        content=[
+            {"type": "text", "text": "are these two images the same?"},
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+            },
+        ],
+    )
+    async for chunk in last_model.astream(
+            [system_message, message],
+            config={
+                "configurable": {
+                    "last_base_url": "https://ark.cn-beijing.volces.com/api/v3/",
+                    "last_model": "doubao-1-5-vision-lite-250315",
+                    "last_temperature": 0,
+                    "last_max_tokens": 512,
+                    "last_api_key": os.getenv('DOUBAO_API_KEY')
                 }
             },
     ):
