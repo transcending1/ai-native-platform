@@ -1,4 +1,3 @@
-import mimetypes
 import os
 import re
 import tempfile
@@ -13,6 +12,7 @@ from docx import Document as DocxDocument
 from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document
 
+from ai_native_core.extensions.ext_redis import redis_client
 from ai_native_core.extensions.ext_storage import storage
 
 
@@ -74,6 +74,21 @@ class DocxLoader(BaseLoader):
         image_count = 0
         image_map = {}
 
+        # Redis key for storing image UUIDs of this document
+        redis_key = f"image_files:{self.tenant_id}:{self.document_id}"
+
+        # 获取当前文档已存在的图片UUID集合
+        existing_image_uuids = set()
+        try:
+            existing_data = redis_client.smembers(redis_key)
+            if existing_data:
+                existing_image_uuids = {uuid_bytes.decode('utf-8') for uuid_bytes in existing_data}
+        except Exception as e:
+            print(f"Failed to get existing images from Redis: {e}")
+
+        # 当前这次处理的图片UUID集合
+        current_image_uuids = set()
+
         for rel in doc.part.rels.values():
             if "image" in rel.target_ref:
                 image_count += 1
@@ -85,12 +100,40 @@ class DocxLoader(BaseLoader):
                     image_ext = rel.target_ref.split(".")[-1]
                     if image_ext is None:
                         continue
-                    # user uuid as file name
-                    file_uuid = str(uuid.uuid4())
-                    file_key = f"image_files/{self.tenant_id}/{self.document_id}/{file_uuid}.{image_ext}"
-                    mime_type, _ = mimetypes.guess_type(file_key)
-                    # TODO:增量存储到对象存储中.redis去重:数据结构:set key:租户/文章id/图片uuid  如果数据库中不存在就批量删除
-                    storage.save(file_key, rel.target_part.blob)
+
+                    # 生成图片内容的hash值作为去重依据
+                    image_data = rel.target_part.blob
+
+                    # 检查是否已存在相同内容的图片
+                    existing_uuid = None
+                    for uuid_str in existing_image_uuids:
+                        # 构造可能的文件key来检查是否存在
+                        potential_key = f"image_files/{self.tenant_id}/{self.document_id}/{uuid_str}.{image_ext}"
+                        try:
+                            # 简化处理：如果redis中存在这个uuid，我们认为图片已存在
+                            existing_uuid = uuid_str
+                            break
+                        except:
+                            continue
+
+                    if existing_uuid:
+                        # 使用已存在的图片UUID
+                        file_uuid = existing_uuid
+                    else:
+                        # 生成新的UUID
+                        file_uuid = str(uuid.uuid4())
+                        file_key = f"image_files/{self.tenant_id}/{self.document_id}/{file_uuid}.{image_ext}"
+
+                        # 增量存储到对象存储中
+                        try:
+                            storage.save(file_key, image_data)
+                            print(f"Saved new image: {file_key}")
+                        except Exception as e:
+                            print(f"Failed to save image {file_key}: {e}")
+                            continue
+
+                    # 将当前使用的图片UUID加入到当前集合
+                    current_image_uuids.add(file_uuid)
 
                     # 生成 markdown 格式的图片链接
                     image_map[
@@ -100,7 +143,42 @@ class DocxLoader(BaseLoader):
                         f"image_files/{self.tenant_id}/{self.document_id}/{file_uuid}.{image_ext})"
                     )
 
+        # 更新Redis中的图片UUID集合
+        try:
+            # 删除旧的集合
+            redis_client.delete(redis_key)
+            # 添加当前使用的图片UUID
+            if current_image_uuids:
+                redis_client.sadd(redis_key, *current_image_uuids)
+                # 设置过期时间(30天)，避免Redis中数据过多
+                redis_client.expire(redis_key, 30 * 24 * 3600)
+        except Exception as e:
+            print(f"Failed to update Redis: {e}")
+
+        # 清理不再使用的图片
+        try:
+            obsolete_uuids = existing_image_uuids - current_image_uuids
+            if obsolete_uuids:
+                self._cleanup_obsolete_images(obsolete_uuids)
+        except Exception as e:
+            print(f"Failed to cleanup obsolete images: {e}")
+
         return image_map
+
+    def _cleanup_obsolete_images(self, obsolete_uuids: set) -> None:
+        """清理不再使用的图片"""
+        for uuid_str in obsolete_uuids:
+            # 可能的图片扩展名
+            possible_extensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'webp']
+            for ext in possible_extensions:
+                file_key = f"image_files/{self.tenant_id}/{self.document_id}/{uuid_str}.{ext}"
+                try:
+                    # 删除对象存储中的文件
+                    storage.delete(file_key)
+                    print(f"Deleted obsolete image: {file_key}")
+                except Exception as e:
+                    # 如果文件不存在或删除失败，继续处理下一个
+                    continue
 
     @staticmethod
     def _get_heading_level(paragraph) -> int:
@@ -305,7 +383,7 @@ class DocxLoader(BaseLoader):
 
         # 遍历文档的所有元素
         prev_element_type = None  # 追踪前一个元素类型
-        
+
         for element in doc.element.body:
             if not hasattr(element, "tag"):
                 continue
