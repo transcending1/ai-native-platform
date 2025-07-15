@@ -13,6 +13,8 @@ from docx import Document as DocxDocument
 from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document
 
+from ai_native_core.extensions.ext_storage import storage
+
 
 class DocxLoader(BaseLoader):
 
@@ -22,9 +24,16 @@ class DocxLoader(BaseLoader):
         parsed = urlparse(url)
         return bool(parsed.netloc) and bool(parsed.scheme)
 
-    def __init__(self, file_path: Union[str, Path]):
+    def __init__(
+            self,
+            file_path: Union[str, Path],
+            tenant_id: str,
+            document_id: str
+    ):
         """Initialize with file path."""
         self.file_path = str(file_path)
+        self.tenant_id = tenant_id
+        self.document_id = document_id
         self.original_file_path = self.file_path
         if "~" in self.file_path:
             self.file_path = os.path.expanduser(self.file_path)
@@ -60,8 +69,7 @@ class DocxLoader(BaseLoader):
             )
         ]
 
-    @staticmethod
-    def _extract_images_from_docx(doc) -> Dict[Any, str]:
+    def _extract_images_from_docx(self, doc) -> Dict[Any, str]:
         """Extract images from docx and return a mapping of image parts to markdown links."""
         image_count = 0
         image_map = {}
@@ -79,15 +87,18 @@ class DocxLoader(BaseLoader):
                         continue
                     # user uuid as file name
                     file_uuid = str(uuid.uuid4())
-                    file_key = "image_files/" + "/" + file_uuid + "." + image_ext
+                    file_key = f"image_files/{self.tenant_id}/{self.document_id}/{file_uuid}.{image_ext}"
                     mime_type, _ = mimetypes.guess_type(file_key)
                     # TODO:增量存储到对象存储中.redis去重:数据结构:set key:租户/文章id/图片uuid  如果数据库中不存在就批量删除
-                    # storage.save(file_key, rel.target_part.blob)
+                    storage.save(file_key, rel.target_part.blob)
 
                     # 生成 markdown 格式的图片链接
                     image_map[
                         rel.target_part
-                    ] = f"![image](http://www.baidu.com/files/12/file-preview/{file_uuid}.{image_ext})"
+                    ] = (
+                        f"![image]({os.environ.get('STORAGE_STATIC_RESOURCE_PREFIX_URL')}/"
+                        f"image_files/{self.tenant_id}/{self.document_id}/{file_uuid}.{image_ext})"
+                    )
 
         return image_map
 
@@ -293,6 +304,8 @@ class DocxLoader(BaseLoader):
         tables = doc.tables.copy()
 
         # 遍历文档的所有元素
+        prev_element_type = None  # 追踪前一个元素类型
+        
         for element in doc.element.body:
             if not hasattr(element, "tag"):
                 continue
@@ -306,7 +319,13 @@ class DocxLoader(BaseLoader):
                     if heading_level > 0:
                         paragraph_text = self._parse_paragraph_content(para, image_map)
                         if paragraph_text.strip():
+                            # 在标题前添加空行（除非是第一个元素）
+                            if content and prev_element_type != "heading":
+                                content.append("")
                             content.append(f"{'#' * heading_level} {paragraph_text}")
+                            # 在标题后添加空行
+                            content.append("")
+                            prev_element_type = "heading"
                         continue
 
                     # 检查是否为列表
@@ -314,15 +333,25 @@ class DocxLoader(BaseLoader):
                     if is_list:
                         paragraph_text = self._parse_paragraph_content(para, image_map)
                         if paragraph_text.strip():
+                            # 如果前一个元素不是列表，添加空行
+                            if content and prev_element_type not in ["list", "heading"]:
+                                content.append("")
                             indent = "  " * level
                             list_marker = "1." if is_ordered else "-"
                             content.append(f"{indent}{list_marker} {paragraph_text}")
+                            prev_element_type = "list"
                         continue
 
                     # 普通段落
                     paragraph_text = self._parse_paragraph_content(para, image_map)
                     if paragraph_text.strip():
+                        # 在普通段落前添加空行（除非前一个是标题或者是第一个元素）
+                        if content and prev_element_type not in ["paragraph", "heading"]:
+                            content.append("")
                         content.append(paragraph_text)
+                        # 在普通段落后添加空行
+                        content.append("")
+                        prev_element_type = "paragraph"
                     else:
                         # 保持空行
                         content.append("")
@@ -331,19 +360,35 @@ class DocxLoader(BaseLoader):
                 if tables:
                     table = tables.pop(0)
                     table_markdown = self._table_to_markdown(table, image_map)
+                    # 在表格前添加空行
+                    if content:
+                        content.append("")
                     content.append(table_markdown)
+                    # 在表格后添加空行
+                    content.append("")
+                    prev_element_type = "table"
 
         # 清理和格式化输出
         formatted_content = []
         prev_line_empty = False
+        consecutive_empty_lines = 0
 
         for line in content:
             if line.strip() == "":
-                if not prev_line_empty:
+                consecutive_empty_lines += 1
+                # 最多保留一个连续的空行
+                if consecutive_empty_lines == 1:
                     formatted_content.append("")
                 prev_line_empty = True
             else:
                 formatted_content.append(line)
                 prev_line_empty = False
+                consecutive_empty_lines = 0
 
-        return "\n".join(formatted_content).strip()
+        # 移除开头和结尾的空行
+        while formatted_content and formatted_content[0].strip() == "":
+            formatted_content.pop(0)
+        while formatted_content and formatted_content[-1].strip() == "":
+            formatted_content.pop()
+
+        return "\n".join(formatted_content)
