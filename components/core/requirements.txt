@@ -7,3 +7,5 @@ redis~=6.0.0
 tang-yuan-mlops-sdk
 langchain-mcp-adapters
 python-dotenv~=1.1.0
+python-docx~=0.8.11
+requests~=2.31.0
