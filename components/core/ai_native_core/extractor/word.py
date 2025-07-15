@@ -11,9 +11,35 @@ import requests
 from docx import Document as DocxDocument
 from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document
+from langchain_core.messages import SystemMessage, HumanMessage
 
 from ai_native_core.extensions.ext_redis import redis_client
 from ai_native_core.extensions.ext_storage import storage
+from ai_native_core.model import last_model
+
+
+class VisionPictureConfig:
+    """Configuration for vision picture understanding."""
+
+    def __init__(
+            self,
+            model: str,
+            model_provider: str,
+            base_url: str,
+            api_key: str,
+            max_tokens: int = 4096,
+            temperature: float = 0,
+            system_prompt: str = "你是一个图片内容提取专家，擅长提取图片中的内容，理解图片中的内容。保留图片中的所有细节和信息，尽可能全面地描述图片中的内容。用markdown的格式输出图片内容，包含图片的描述和相关信息。",
+            human_prompt: str = "用你的才能提取下面图片中的内容",
+    ):
+        self.model = model
+        self.model_provider = model_provider
+        self.base_url = base_url
+        self.api_key = api_key
+        self.max_tokens = max_tokens
+        self.temperature = temperature
+        self.system_prompt = system_prompt
+        self.human_prompt = human_prompt
 
 
 class DocxLoader(BaseLoader):
@@ -28,13 +54,18 @@ class DocxLoader(BaseLoader):
             self,
             file_path: Union[str, Path],
             tenant_id: str,
-            document_id: str
+            document_id: str,
+            is_vision_picture_understanding: bool = False,
+            vision_model_config: VisionPictureConfig = None,
     ):
         """Initialize with file path."""
         self.file_path = str(file_path)
         self.tenant_id = tenant_id
         self.document_id = document_id
         self.original_file_path = self.file_path
+        self.is_vision_picture_understanding = is_vision_picture_understanding
+        # to dict
+        self.vision_model_config = vision_model_config
         if "~" in self.file_path:
             self.file_path = os.path.expanduser(self.file_path)
 
@@ -108,7 +139,6 @@ class DocxLoader(BaseLoader):
                     existing_uuid = None
                     for uuid_str in existing_image_uuids:
                         # 构造可能的文件key来检查是否存在
-                        potential_key = f"image_files/{self.tenant_id}/{self.document_id}/{uuid_str}.{image_ext}"
                         try:
                             # 简化处理：如果redis中存在这个uuid，我们认为图片已存在
                             existing_uuid = uuid_str
@@ -131,17 +161,48 @@ class DocxLoader(BaseLoader):
                         except Exception as e:
                             print(f"Failed to save image {file_key}: {e}")
                             continue
-
                     # 将当前使用的图片UUID加入到当前集合
                     current_image_uuids.add(file_uuid)
 
                     # 生成 markdown 格式的图片链接
-                    image_map[
-                        rel.target_part
-                    ] = (
-                        f"![image]({os.environ.get('STORAGE_STATIC_RESOURCE_PREFIX_URL')}/"
-                        f"image_files/{self.tenant_id}/{self.document_id}/{file_uuid}.{image_ext})"
+                    image_url = (
+                        f"{os.environ.get('STORAGE_STATIC_RESOURCE_PREFIX_URL')}/"
+                        f"image_files/{self.tenant_id}/{self.document_id}/{file_uuid}.{image_ext}"
                     )
+                    image_map[rel.target_part] = f"![image]({image_url})\n\n"
+
+                    if self.is_vision_picture_understanding:
+                        # base64_image = base64.b64encode(image_data).decode('utf-8')
+                        system_message = SystemMessage(
+                            content=self.vision_model_config.system_prompt
+                        )
+                        message = HumanMessage(
+                            content=[
+                                {"type": "text", "text": self.vision_model_config.human_prompt},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": image_url},
+                                },
+                            ]
+                        )
+                        picture_content = last_model.invoke(
+                            [
+                                system_message,
+                                message
+                            ],
+                            config={
+                                "configurable": {
+                                    "last_base_url": self.vision_model_config.base_url,
+                                    "last_model": self.vision_model_config.model,
+                                    "last_model_provider": self.vision_model_config.model_provider,
+                                    "last_temperature": self.vision_model_config.temperature,
+                                    "last_max_tokens": self.vision_model_config.max_tokens,
+                                    "last_api_key": self.vision_model_config.api_key
+                                }
+                            }
+                        )
+                        # 将图片内容添加到markdown链接中
+                        image_map[rel.target_part] += f"\n\n上面图片描述的内容为:{picture_content.content}\n\n"
 
         # 更新Redis中的图片UUID集合
         try:
