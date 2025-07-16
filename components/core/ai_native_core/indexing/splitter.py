@@ -17,18 +17,20 @@ markdown_splitter = MarkdownHeaderTextSplitter(
     headers_to_split_on=headers_to_split_on,
     strip_headers=True
 )
-chunk_size = 800
-chunk_overlap = 150
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=chunk_size, chunk_overlap=chunk_overlap
-)
 
 
 # 标准splitter:markdown + 递归 + header提升可解释性，可操控性
 # 两种splitter混合提升综合切分效果
 # TODO:元数据增强,header可以作为混合检索BM25依据。header可以作为Embedding增强依据。融合文章标题，文章树标题也能一定程度提升命中率
 # TODO:树形结构问答，抽取多级目录树+子树结构
-def split_docs(markdown_documents):
+def split_docs(
+        markdown_documents,
+        chunk_size=800,
+        chunk_overlap=150
+):
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size, chunk_overlap=chunk_overlap
+    )
     splits = []
     for markdown_document in markdown_documents:
         meta_data = markdown_document.metadata
@@ -82,6 +84,3 @@ def split_tools(
             )
         )
     return splits
-
-
-

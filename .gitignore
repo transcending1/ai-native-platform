@@ -207,3 +207,4 @@ marimo/_lsp/
 __marimo__/
 .env
 .idea
+exp/rag/2.Embedding/settings.py
