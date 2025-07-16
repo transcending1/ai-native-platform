@@ -6,7 +6,7 @@ from ai_native_core.indexing.splitter import split_docs
 
 new_markdown_document = '''
 # 会议室号码 \n\n    
-## 法拉第会议室号码是多少？ \n\n 123456789 \n\n'''
+## xxx会议室号码是多少？ \n\n 123456789 \n\n'''
 
 
 def test_splitter():
