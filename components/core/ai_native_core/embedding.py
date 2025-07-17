@@ -5,7 +5,7 @@ from langchain_core.embeddings import Embeddings
 from tang_yuan_mlops_sdk.llm.embedding import EmbeddingClient
 
 
-class BCEEmbeddings(Embeddings):
+class BGEEmbeddings(Embeddings):
     def __init__(
             self,
             base_url: str = os.getenv('EMBEDDING_BASE_URL'),  # 使用配置文件中的值
@@ -31,4 +31,4 @@ class BCEEmbeddings(Embeddings):
         return embeddings[0]
 
 
-embedding = BCEEmbeddings()
+embedding = BGEEmbeddings()
