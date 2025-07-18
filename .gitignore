@@ -208,3 +208,4 @@ __marimo__/
 .env
 .idea
 exp/rag/2.Embedding/settings.py
+exp/rag/3.向量数据库/settings.py
