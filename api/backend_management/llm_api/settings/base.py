@@ -1,0 +1,232 @@
+import logging
+import os
+from pathlib import Path
+
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = "django-insecure-_bfh4@oxyvbq%q@h)p&(n+$54wth6nd11n**gdy480b86w0_(&"
+
+ALLOWED_HOSTS = ['*']
+
+# Application definition
+
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    'rest_framework',  # DRF
+    'drf_yasg',  # swagger
+    'corsheaders',  # 跨域
+    'rest_framework_simplejwt',  # JWT
+    'django_apscheduler',  # 定时任务
+    'django_redis',  # redis
+    'django_filters',  # django-filter
+    'user',
+]
+
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    'corsheaders.middleware.CorsMiddleware',
+]
+
+ROOT_URLCONF = "llm_api.urls"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = "llm_api.wsgi.application"
+
+# Database
+# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
+
+
+# Password validation
+# https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
+
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+    },
+]
+
+# Internationalization
+# https://docs.djangoproject.com/en/4.2/topics/i18n/
+
+LANGUAGE_CODE = "en-us"
+
+TIME_ZONE = "UTC"
+
+USE_I18N = True
+
+USE_TZ = True
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/4.2/howto/static-files/
+
+STATIC_URL = "static/"
+
+# Default primary key field type
+# https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'EXCEPTION_HANDLER': 'errors.global_exception_handler',
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend']
+}
+
+CORS_ORIGIN_ALLOW_ALL = True
+
+CORS_ALLOW_METHODS = [
+    'GET',
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+    'OPTIONS'
+]
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with'
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+SWAGGER_SETTINGS = {
+    "DEFAULT_INFO": "llm_api.urls.openapi_info",
+}
+
+SCHEDULER_AUTOSTART = True
+
+# 日志配置
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+        "default": {
+            "format": '%(asctime)s %(name)s  %(pathname)s:%(lineno)d %(module)s:%(funcName)s '
+                      '%(levelname)s- %(message)s',
+            "datefmt": "%Y-%m-%d %H:%M:%S"
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'default'
+        },
+        'error': {
+            'level': 'ERROR',
+            'class': 'logging.StreamHandler',
+            # 'filename': os.path.join(BASE_DIR, 'logs/error.log'),
+            'formatter': 'default'
+        },
+        'warning': {
+            'level': 'WARNING',
+            'class': 'logging.StreamHandler',
+            # 'filename': os.path.join(BASE_DIR, 'logs/warning.log'),
+            'formatter': 'default'
+        },
+        'info': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            # 'filename': os.path.join(BASE_DIR, 'logs/info.log'),
+            'formatter': 'default'
+        },
+    },
+    'loggers': {
+        # 应用中自定义日志记录器
+        'error': {
+            'level': 'ERROR',
+            'handlers': ['console', 'error'],
+            'propagate': True,
+        },
+        'warning': {
+            'level': 'WARNING',
+            'handlers': ['console', 'warning'],
+            'propagate': True,
+        },
+        'info': {
+            'level': 'INFO',
+            'handlers': ['console', 'info'],
+            'propagate': True,
+        },
+    },
+}
+
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_CACHE_ALIAS = 'default'
+
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
+MEDIA_URL = '/media/'  # 默认存储在项目根目录下的media文件夹
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # 默认存储在项目根目录下的media文件夹
+
+STORAGES = {
+    'staticfiles': {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+    },
+    "default": {
+        # django default storage file system
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    }
+}
+
+error_logger = logging.getLogger('error').error
+warning_logger = logging.getLogger('warning').warning
+info_logger = logging.getLogger('info').info

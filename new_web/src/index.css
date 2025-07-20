@@ -1,0 +1,6 @@
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 你可以在这里添加自定义的全局样式 */

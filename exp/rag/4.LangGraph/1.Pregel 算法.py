@@ -13,13 +13,13 @@ Pregel算法的精妙之处在于将复杂的图计算问题转化为"思考-行
 这种模式避免了传统递归调用的复杂性，让异步计算变得简单而优雅。
 """
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Set, Optional, Callable, Union
-from dataclasses import dataclass, field
 import threading
 import time
+from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any, Dict, List, Set, Optional, Callable
 
 
 class ChannelType(Enum):
