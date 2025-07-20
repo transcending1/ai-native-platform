@@ -17,6 +17,7 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     filterset_fields = ['email']
 
+    # rest_framework的action装饰器用于定义自定义动作
     @action(detail=True, methods=['post'])
     def initiate_purchase(self, request, pk=None):
         user = self.get_object()

@@ -1,0 +1,5 @@
+apiVersion: v2
+name: langgraph-application-chart
+description: LangGraph核心功能
+version: 0.1.0
+appVersion: "1.0"

@@ -1,0 +1,38 @@
+---
+alwaysApply: false
+---
+# Django工程开发规范（分成整体项目和APP两个概念，APP下面又有子模块的概念）
+
+# 所有代码都参考APP下面子模块：book_manager的代码规范。（注意：下面的book_manager就是user APP的子模块）
+1.整体项目依赖管理:/api/backend_management/requirements.txt
+2.整体项目url书写规范参考代码: /api/backend_management/url.py
+3.User APP内url书写规范参考代码: /api/backend_management/users/urls.py
+4.User APP内数据库建模models书写规范参考代码: /api/backend_management/users/models/book_manager.py
+5.User APP内序列化器书写规范参考代码: /api/backend_management/users/serializers/book_manager.py
+6.User APP内视图层views书写规范参考代码: /api/backend_management/users/views/book_manager.py
+7.User APP内测试代码层tests书写规范参考代码: /api/backend_management/users/tests/test_book_manager.py
+8.整体配置文件settings地址（遇到需要加配置的时候可以往里面加）: api/backend_management/llm_api/settings/dev_settings.py
+9.APP目录规范参考： /api/backend_management/users/
+
+
+# 新功能开发：如果需要新开发一些新功能，你需要做的事情就是在已经有的APP下面加入一个子模块（名字如果没有需要构建一个）按照下面的规范：
+1.如果有新依赖在依赖管理文件里加即可。
+2.如果有新的url需要在url.py里加。
+3.如果有新的数据库模型需要在Django APP中的models文件夹下面新建一个模型文件。sub_module.py
+4.如果有新的序列化器需要在Django APP中的serializers文件夹下面新建一个序列化器文件。sub_module.py
+5.如果有新的视图需要在Django APP中的views文件夹下面新建一个视图文件。sub_module.py
+6.如果有新的测试用例需要在Django APP中的tests文件夹下面新建一个测试文件。sub_module.py
+7.如果有新的配置需要在配置文件settings中添加。
+8.如果有新的Django APP需要在api/backend_management/llm_api/settings/base.py的INSTALLED_APPS中添加。并且在url里面加
+
+# 功能迭代规范：在给定的子模块下面寻找文件，然后根据用户最新版的需求进行迭代。（你也可以参考之前版本的描述进行思考，但重点要放到最新版需求的迭代上面）
+1.如果需要迭代某个功能，首先要在对应的子模块下找到对应的文件进行修改。
+2.如果需要迭代某个功能的url，首先要在对应的子模块下找到urls.py文件进行修改。
+3.如果需要迭代某个功能的数据库模型，首先要在对应的子模块下找到models文件夹下的对应模型文件进行修改。
+4.如果需要迭代某个功能的序列化器，首先要在对应的子模块下找到serializers文件夹下的对应序列化器文件进行修改。
+5.如果需要迭代某个功能的视图，首先要在对应的子模块下找到views文件夹下的对应视图文件进行修改。
+6.如果需要迭代某个功能的测试用例，首先要在对应的子模块下找到tests文件夹下的对应测试文件进行修改。
+7.如果需要迭代某个功能的配置，首先要在对应的配置文件settings中进行修改。
+
+# 调试规范
+开发完了代码之后写测试用例Mock测试，如果有错误就去纠正代码。然后再测试，再去纠正代码。直到测试通过。

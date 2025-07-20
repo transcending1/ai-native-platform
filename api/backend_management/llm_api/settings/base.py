@@ -26,6 +26,8 @@ INSTALLED_APPS = [
     'django_apscheduler',  # 定时任务
     'django_redis',  # redis
     'django_filters',  # django-filter
+    'drf_spectacular',  # 注册应用
+    'drf_spectacular_sidecar',  # 如果安装了 sidecar
     'user',
 ]
 
@@ -104,7 +106,7 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
-    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -112,6 +114,19 @@ REST_FRAMEWORK = {
     ],
     'EXCEPTION_HANDLER': 'errors.global_exception_handler',
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend']
+}
+
+
+# Spectacular 配置
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'AI Native Platform API',
+    'DESCRIPTION': 'AI Native Platform',
+    'VERSION': '0.0.1',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SWAGGER_UI_DIST': 'SIDECAR',  # Sidecar 模式（静态文件内嵌）
+    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
+    'REDOC_DIST': 'SIDECAR',
+    # 其他配置见下文
 }
 
 CORS_ORIGIN_ALLOW_ALL = True
@@ -230,3 +245,21 @@ STORAGES = {
 error_logger = logging.getLogger('error').error
 warning_logger = logging.getLogger('warning').warning
 info_logger = logging.getLogger('info').info
+
+# 腾讯云COS配置
+TENCENT_COS_SETTINGS = {
+    'SECRET_ID': os.getenv('TENCENT_COS_SECRET_ID', ''),
+    'SECRET_KEY': os.getenv('TENCENT_COS_SECRET_KEY', ''),
+    'REGION': os.getenv('TENCENT_COS_REGION', 'ap-beijing'),
+    'BUCKET': os.getenv('TENCENT_COS_BUCKET', ''),
+    'DOMAIN': os.getenv('TENCENT_COS_DOMAIN', ''),  # 自定义域名，可选
+    'IS_HTTPS': True,  # 是否使用HTTPS
+}
+
+# 文件上传设置
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+
+# 允许的图片格式
+ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5MB

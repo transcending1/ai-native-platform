@@ -24,6 +24,12 @@ from drf_yasg.views import get_schema_view
 from rest_framework import permissions
 from rest_framework.documentation import include_docs_urls
 
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularSwaggerView,
+    SpectacularRedocView
+)
+
 openapi_info = openapi.Info(
     title="测试工程API",
     default_version='v1.0',
@@ -49,7 +55,6 @@ urlpatterns = [
 
                   # 业务模块
                   path('user/', include('user.urls'), name='user'),
-                  path('user22/', include('user.urls'), name='user22'),
 
                   # 接口文档
                   path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),
@@ -59,5 +64,13 @@ urlpatterns = [
 
                   # static
                   path('static/', include('django.contrib.staticfiles.urls')),
+                  # 生成 Schema 文件（YAML/JSON）
+                  path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+
+                  # Swagger UI 文档（交互式）
+                  path('api/docs/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+
+                  # Redoc 文档（静态排版）
+                  path('api/docs/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
               ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

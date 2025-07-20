@@ -1,7 +1,8 @@
-import pytest
 import allure
+import pytest
+
 from user.models.book_manager import User, Bookstore, Book, PurchaseRecord, PurchaseItem
-from django.utils import timezone
+
 
 @allure.feature('用户管理')
 @allure.story('创建用户')
@@ -13,6 +14,7 @@ def test_create_user():
         assert user.name == 'John Doe'
         assert user.email == 'john.doe@example.com'
 
+
 @allure.feature('书店管理')
 @allure.story('创建书店')
 @pytest.mark.django_db
@@ -22,6 +24,7 @@ def test_create_bookstore():
     with allure.step("验证书店信息"):
         assert bookstore.name == 'Central Bookstore'
         assert bookstore.website == 'https://centralbooks.com'
+
 
 @allure.feature('书籍管理')
 @allure.story('创建书籍')
@@ -35,6 +38,7 @@ def test_create_book():
         assert book.title == 'Django for Beginners'
         assert book.price == 29.99
         assert book.bookstore == bookstore
+
 
 @allure.feature('购买流程')
 @allure.story('用户发起购买')
@@ -70,6 +74,7 @@ def test_initiate_purchase():
         assert item2.quantity == 1
         assert item2.unitPrice == book2.price
 
+
 @allure.feature('购买流程')
 @allure.story('用户发起购买时书店不存在')
 @pytest.mark.django_db
@@ -81,6 +86,7 @@ def test_initiate_purchase_with_invalid_bookstore():
     with allure.step("尝试发起购买并验证异常"):
         with pytest.raises(Bookstore.DoesNotExist):
             user.initiate_purchase(bookstore_id=bookstore_id, cart=cart)
+
 
 @allure.feature('购买流程')
 @allure.story('用户发起购买时书籍不存在')
@@ -96,6 +102,7 @@ def test_initiate_purchase_with_invalid_books():
     with allure.step("尝试发起购买并验证异常"):
         with pytest.raises(Book.DoesNotExist):
             user.initiate_purchase(bookstore_id=bookstore.id, cart=cart)
+
 
 @allure.feature('购买流程')
 @allure.story('批量创建购买项')
@@ -127,6 +134,7 @@ def test_bulk_create_purchase_items():
             assert corresponding_cart_item is not None
             assert item.quantity == corresponding_cart_item['quantity']
             assert item.unitPrice == item.book.price
+
 
 @allure.feature('购买流程')
 @allure.story('购买事务的原子性')

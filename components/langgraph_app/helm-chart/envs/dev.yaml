@@ -1,0 +1,11 @@
+namespace: llmops
+
+image:
+  repository: test-langgraph-application
+  tag: "0.0.5"
+
+langsmith:
+  token: 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
+
+application:
+  node_port: 32710

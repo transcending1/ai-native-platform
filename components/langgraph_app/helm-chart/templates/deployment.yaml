@@ -1,0 +1,175 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: langgraph-redis
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: langgraph-redis
+  template:
+    metadata:
+      labels:
+        app: langgraph-redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:6
+        resources:
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+          requests:
+            cpu: "2"
+            memory: "4Gi"
+        readinessProbe:
+          exec:
+            command: ["redis-cli", "ping"]
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 1
+          failureThreshold: 5
+        livenessProbe:
+          exec:
+            command: ["redis-cli", "ping"]
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 1
+          failureThreshold: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: langgraph-postgres
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: langgraph-postgres
+  template:
+    metadata:
+      labels:
+        app: langgraph-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:16
+        env:
+        - name: POSTGRES_DB
+          value: postgres
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_PASSWORD
+          value: postgres
+        ports:
+        - containerPort: 5432
+        resources:
+          limits:
+            cpu: "4"
+            memory: "8Gi"
+          requests:
+            cpu: "4"
+            memory: "8Gi"
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-U", "postgres"]
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 1
+          failureThreshold: 5
+        livenessProbe:
+          exec:
+            command: ["pg_isready", "-U", "postgres"]
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 1
+          failureThreshold: 5
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: langgraph-api
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: langgraph-api
+  template:
+    metadata:
+      labels:
+        app: langgraph-api
+    spec:
+      containers:
+      - name: api
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        ports:
+        - containerPort: 8000
+        env:
+        - name: LANGSMITH_API_KEY
+          value: {{ .Values.langsmith.token }}
+        - name: REDIS_URI
+          value: redis://langgraph-redis:6379
+        - name: POSTGRES_URI
+          value: postgres://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
+        - name: LANGSMITH_PROJECT
+          value: knowledge_llmops
+        - name: WEAVIATE_HOST
+          value: "192.168.31.72"
+        - name: WEAVIATE_PORT
+          value: "30080"
+        - name: WEAVIATE_GRPC_PORT
+          value: "30051"
+        - name: WEAVIATE_API_KEY
+          value: "8~^9sQeNJgb_Ju6wP#"
+        - name: DUPLICATE_REDIS_PORT
+          value: "16379"
+        - name: EMBEDDING_BASE_URL
+          value: "http://192.168.31.72:10001"
+        - name: EMBEDDING_TOKEN
+          value: "aB3fG7kL9mN1pQ5rS8tU2vW4xYz0Aa"
+        - name: CHAT_MODEL_DEFAULT_BASE_URL
+          value: "http://192.168.31.72:10000/v1"
+        - name: CHAT_MODEL_DEFAULT_API_KEY
+          value: "aB3fG7kL9mN1pQ5rS8tU2vW4xYz0Aa"
+        - name: RERANK_BASE_URL
+          value: "http://192.168.31.72:10002"
+        - name: RERANK_TOKEN
+          value: "aB3fG7kL9mN1pQ5rS8tU2vW4xYz0Aa"
+        - name: TENCENT_DEEPSEEK_TOKEN
+          value: "sk-NSOMXlzzl5tyYbBfkQBakPkpJVlfL2vSJMXG66pfa2fMiLwg"
+        - name: IOT_BOT_REDIS_URL
+          value: "redis://222.186.32.152:16379/1"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: {{ .Values.namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: {{ .Values.namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
