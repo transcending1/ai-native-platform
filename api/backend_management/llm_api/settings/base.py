@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'drf_spectacular',  # 注册应用
     'drf_spectacular_sidecar',  # 如果安装了 sidecar
     'user',
+    'storages'
 ]
 
 MIDDLEWARE = [
@@ -95,10 +96,13 @@ USE_I18N = True
 
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
+# Static files (CSS, JavaScript, Images)  
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = "static/"
+
+# 自定义用户模型
+AUTH_USER_MODEL = 'user.CustomUser'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -115,7 +119,6 @@ REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'errors.global_exception_handler',
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend']
 }
-
 
 # Spectacular 配置
 SPECTACULAR_SETTINGS = {
@@ -255,6 +258,8 @@ TENCENT_COS_SETTINGS = {
     'DOMAIN': os.getenv('TENCENT_COS_DOMAIN', ''),  # 自定义域名，可选
     'IS_HTTPS': True,  # 是否使用HTTPS
 }
+
+DEFAULT_FILE_STORAGE = 'utils.cos_storage.TencentCOSStorage'
 
 # 文件上传设置
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB

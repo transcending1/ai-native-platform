@@ -3,10 +3,6 @@
 import os
 import sys
 
-# from django.db.backends.postgresql.features import DatabaseFeatures
-#
-# DatabaseFeatures.minimum_database_version = (11,)
-
 
 def main():
     """Run administrative tasks."""

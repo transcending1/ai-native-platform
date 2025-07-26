@@ -6,15 +6,12 @@ from rest_framework_simplejwt.views import (
     TokenVerifyView
 )
 
-from user.views import book_manager, knowledge_base
+from user.views import book_manager
 
 router = routers.DefaultRouter()
-router.register(r'user', book_manager.UserViewSet)
+# 图书管理相关路由
 router.register(r'bookstore', book_manager.BookstoreViewSet)
 router.register(r'book', book_manager.BookViewSet)
-router.register(r'knowledgebase', knowledge_base.KnowledgeBaseViewSet)
-router.register(r'document', knowledge_base.DocumentViewSet)
-
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
 urlpatterns = [

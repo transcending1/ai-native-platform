@@ -1,11 +1,6 @@
 from rest_framework import serializers
-from user.models.book_manager import User, Bookstore, Book, PurchaseRecord, PurchaseItem
 
-
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = '__all__'
+from user.models.book_manager import Bookstore, Book, PurchaseRecord, PurchaseItem
 
 
 class BookstoreSerializer(serializers.ModelSerializer):

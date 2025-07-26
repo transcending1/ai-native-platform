@@ -19,32 +19,12 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import path, include
-from drf_yasg import openapi
-from drf_yasg.views import get_schema_view
-from rest_framework import permissions
-from rest_framework.documentation import include_docs_urls
-
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularSwaggerView,
     SpectacularRedocView
 )
 
-openapi_info = openapi.Info(
-    title="测试工程API",
-    default_version='v1.0',
-    description="测试工程接口文档",
-    terms_of_service="#",
-    contact=openapi.Contact(email="测试"),
-    license=openapi.License(name="Apache License"),
-)
-
-# noinspection PyTypeChecker
-schema_view = get_schema_view(
-    openapi_info,
-    public=True,
-    permission_classes=(permissions.AllowAny,),
-)
 urlpatterns = [
 
                   # 心跳检查
@@ -56,21 +36,15 @@ urlpatterns = [
                   # 业务模块
                   path('user/', include('user.urls'), name='user'),
 
-                  # 接口文档
-                  path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),
-                  path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-                  path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
-                  path('docs/', include_docs_urls(title='接口文档')),
-
                   # static
                   path('static/', include('django.contrib.staticfiles.urls')),
                   # 生成 Schema 文件（YAML/JSON）
-                  path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+                  path('schema/', SpectacularAPIView.as_view(), name='schema'),
 
                   # Swagger UI 文档（交互式）
-                  path('api/docs/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+                  path('swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 
                   # Redoc 文档（静态排版）
-                  path('api/docs/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+                  path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
               ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

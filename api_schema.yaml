@@ -1,0 +1,71 @@
+openapi: 3.0.3
+info:
+  title: AI Native Platform API
+  version: 0.0.1
+  description: AI Native Platform
+paths:
+  /user/book/:
+    get:
+      operationId: user_book_list
+      parameters:
+      - in: query
+        name: bookstore
+        schema:
+          type: integer
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: price
+        schema:
+          type: number
+          format: float
+      - in: query
+        name: title
+        schema:
+          type: string
+      tags:
+      - user
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBookList'
+          description: ''
+components:
+  schemas:
+    PaginatedBookList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Book'
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

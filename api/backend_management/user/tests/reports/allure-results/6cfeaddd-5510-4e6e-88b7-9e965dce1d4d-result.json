@@ -1,0 +1,1 @@
+{"name": "test_tenant_list_permission", "status": "passed", "description": "测试租户列表权限", "start": 1753369846230, "stop": 1753369943699, "uuid": "0425bdcb-27b7-4ff4-bca3-4b68db3fff77", "testCaseId": "da3bd00a20bc0dd5bc0823daea016022", "fullName": "user.tests.test_user.TenantAPITest#test_tenant_list_permission"}

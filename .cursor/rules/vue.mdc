@@ -1,0 +1,26 @@
+---
+alwaysApply: false
+---
+# Vue工程开发规范
++ 所有代码的书写都要以最优雅，最精简，最符合Vue3 + element-plus + vue-router + pinia + tailwindcss的设计理念和规范的方式去实现。
++ 概念：1.整体项目 2.子项目（一个页面） 3.组件（一个页面中的构成部分）
++ 所有调用API的逻辑都放到Vue文件里面，高内聚即可，没必要单独放到一个js文件中。
+
+# 整体项目规范
+1. 整体项目静态资源路径：new_web/src/assets
+2. 整体项目组件路径：new_web/src/components (里面都是存放着整体项目通用的组件)
+3. 整体项目路由路径：new_web/src/router
+4. 整体项目状态存储路径：new_web/src/stores
+5. 子项目路径：new_web/src/views   里面的文件夹是一个子项目
+6. 子项目构成示例：new_web/src/views/Login/Main.vue （子项目编排文件） new_web/src/views/Login/components 文件夹下面所有的vue文件都是子项目的组件，被Main.vue编排
+7. 整体入口：new_web/src/App.vue 是 Vue入口  new_web/src/main.js 是 整体项目入口，导包，整体插件配置。
+8. 整体项目的环境变量：new_web/.env.development 生产环境  new_web/.env.production 开发环境
+9. 整体项目的依赖你使用npm帮忙进行管理即可，如果有依赖需要安装就自动帮忙安装一波。
+
+# 新功能开发&迭代规范：如果需要新开发一些新功能，子项目路径下面加入一个子项目（名字如果没有需要构建一个）按照下面的规范：
+1.静态资源可以在静态资源路径里加即可。
+2.路由可以在路由路径里面加。
+3.状态需要管理，就把状态维护在状态路径中。
+4.组件的拆分就把组件放到子项目的组件Vue中。
+
+# 功能迭代规范：在给定的子项目下面寻找文件，然后根据用户最新版的需求进行迭代。（你也可以参考之前版本的描述进行思考，但重点要放到最新版需求的迭代上面）

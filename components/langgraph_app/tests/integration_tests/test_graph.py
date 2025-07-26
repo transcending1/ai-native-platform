@@ -17,10 +17,12 @@ def get_input_config(
                 "user_id": "user1",
             },
             "chat_bot_config": {
-                "prompt": "你是情感伴侣",
+                # "prompt": "你是情感伴侣",
+                "prompt": "你是专利专家，非常擅长回答用户的专利问题",
             },
             "rag_config": {
-                "prompt": "你是情感伴侣",
+                # "prompt": "你是情感伴侣",
+                "prompt": "你是专利专家，非常擅长回答用户的专利问题",
                 "is_rag": is_common_rag,
                 "retrieve_top_n": 5,
                 "retrieve_threshold": 0.2,
@@ -43,10 +45,11 @@ def get_input_config(
                 "namespace_list": ["namespace1"],
             },
             "memory_config": {
-                "max_tokens": 256,
+                # "max_tokens": 256,
+                "max_tokens": 2560,
             },
             "last_temperature": 0,
-            "last_max_tokens": 512,
+            "last_max_tokens": 5120,
             "last_api_key": os.getenv('CHAT_MODEL_DEFAULT_API_KEY'),
             "last_extra_body": {
                 "chat_template_kwargs": {
@@ -54,7 +57,7 @@ def get_input_config(
                 }
             },
             "knowledge_rerank_temperature": 0,
-            "knowledge_rerank_max_tokens": 512,
+            "knowledge_rerank_max_tokens": 5120,
             "knowledge_rerank_api_key": os.getenv('CHAT_MODEL_DEFAULT_API_KEY'),
             "knowledge_rerank_extra_body": {
                 "chat_template_kwargs": {
@@ -70,7 +73,7 @@ def get_input_config(
 @pytest.mark.asyncio
 async def test_only_rag_in_graph() -> None:
     input_params = {
-        "question": "法拉第会议室号码是啥?",
+        "question": "铝电池有啥专利可写?结合我们公司的现状分析一波。",
     }
     input_config = get_input_config(
         "abc123",

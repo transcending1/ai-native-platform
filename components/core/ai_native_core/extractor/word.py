@@ -244,7 +244,11 @@ class DocxLoader(BaseLoader):
     @staticmethod
     def _get_heading_level(paragraph) -> int:
         """Get the heading level of a paragraph (1-6 for h1-h6, 0 for non-heading)."""
-        style_name = paragraph.style.name.lower()
+        style = getattr(paragraph, "style", None)
+        style_name = getattr(style, "name", None)
+        if not style_name:
+            return 0
+        style_name = style_name.lower()
 
         # 检查是否为标题样式
         if 'heading' in style_name:
@@ -308,12 +312,15 @@ class DocxLoader(BaseLoader):
                     return True, True, level
 
         # 检查样式名称中是否包含列表信息
-        style_name = paragraph.style.name.lower()
-        if 'list' in style_name:
-            if 'bullet' in style_name:
-                return True, False, 0
-            elif 'number' in style_name:
-                return True, True, 0
+        style = getattr(paragraph, "style", None)
+        style_name = getattr(style, "name", None)
+        if style_name:
+            style_name = style_name.lower()
+            if 'list' in style_name:
+                if 'bullet' in style_name:
+                    return True, False, 0
+                elif 'number' in style_name:
+                    return True, True, 0
 
         return False, False, 0
 
