@@ -1,0 +1,2 @@
+2025-07-26 02:30:26 warning  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/user/views/user.py:60 user:login WARNING- 用户 testuser 登录失败，错误: {'password': [ErrorDetail(string='This field is required.', code='required')]}
+2025-07-26 02:30:26 warning  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/user/views/user.py:60 user:login WARNING- 用户 testuser 登录失败，错误: {'password': [ErrorDetail(string='This field is required.', code='required')]}

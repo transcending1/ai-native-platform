@@ -1,0 +1,1 @@
+[32mINFO    [0m info:user.py:482 用户 testuser 上传头像成功，头像URL: https://test-bucket.cos.ap-beijing.myqcloud.com/avatars/1/new_test.jpg

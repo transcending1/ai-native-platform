@@ -12,7 +12,6 @@ st.markdown("""
 
 
 # 获取原始 schema 的函数
-@st.cache_data
 def fetch_openapi_schema(url):
     try:
         response = requests.get(url)

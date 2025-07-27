@@ -1,0 +1,1 @@
+[32mINFO    [0m info:user.py:50 用户 testuser 登录成功，IP: 127.0.0.1

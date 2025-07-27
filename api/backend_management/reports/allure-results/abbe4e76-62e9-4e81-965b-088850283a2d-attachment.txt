@@ -1,0 +1,2 @@
+2025-07-26 08:44:49 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/user/views/user.py:543 user:delete_avatar INFO- 用户 testuser 删除头像成功
+2025-07-26 08:44:49 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/user/views/user.py:543 user:delete_avatar INFO- 用户 testuser 删除头像成功

@@ -4,66 +4,152 @@ info:
   version: 0.0.1
   description: AI Native Platform
 paths:
-  /user/book/:
-    get:
-      operationId: user_book_list
-      parameters:
-      - in: query
-        name: bookstore
-        schema:
-          type: integer
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      - in: query
-        name: price
-        schema:
-          type: number
-          format: float
-      - in: query
-        name: title
-        schema:
-          type: string
+  /user/delete_avatar/:
+    delete:
+      operationId: user_delete_avatar
+      description: 删除当前用户的头像
+      summary: 删除用户头像
       tags:
-      - user
+      - 用户头像
       security:
       - jwtAuth: []
-      - {}
       responses:
         '200':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaginatedBookList'
+                $ref: '#/components/schemas/AvatarDeleteResponse'
+              examples:
+                头像删除成功响应:
+                  value:
+                    code: 200
+                    message: 头像删除成功
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: ''
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: ''
+  /user/upload_avatar/:
+    post:
+      operationId: user_upload_avatar
+      description: 上传或更新当前用户的头像，支持jpg、png、gif、webp格式，最大5MB
+      summary: 上传用户头像
+      tags:
+      - 用户头像
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+                  description: 用户头像文件
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvatarUploadResponse'
+              examples:
+                头像上传成功响应:
+                  value:
+                    code: 200
+                    message: 头像上传成功
+                    data:
+                      avatar_url: https://test-bucket.cos.ap-beijing.myqcloud.com/avatars/1/abc123.jpg
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                头像上传失败响应:
+                  value:
+                    code: 400
+                    message: 头像上传失败
+                    errors:
+                      avatar:
+                      - 文件大小不能超过5MB
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: ''
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
           description: ''
 components:
   schemas:
-    PaginatedBookList:
+    ErrorResponse:
       type: object
-      required:
-      - count
-      - results
+      description: 错误响应序列化器
       properties:
-        count:
+        code:
           type: integer
-          example: 123
-        next:
+          description: 错误状态码
+        message:
           type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=4
-        previous:
+          description: 错误消息
+        errors:
+          type: object
+          additionalProperties: {}
+          description: 详细错误信息
+        error:
           type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=2
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/Book'
+          description: 错误详情
+      required:
+      - code
+      - message
+    AvatarUploadResponse:
+      type: object
+      description: 头像上传接口响应序列化器
+      properties:
+        code:
+          type: integer
+          description: 响应状态码
+        message:
+          type: string
+          description: 响应消息
+        data:
+          type: object
+          additionalProperties:
+            type: string
+          description: 头像数据
+      required:
+      - code
+      - data
+      - message
+    AvatarDeleteResponse:
+      type: object
+      description: 头像删除接口响应序列化器
+      properties:
+        code:
+          type: integer
+          description: 响应状态码
+        message:
+          type: string
+          description: 响应消息
+      required:
+      - code
+      - message
   securitySchemes:
     jwtAuth:
       type: http

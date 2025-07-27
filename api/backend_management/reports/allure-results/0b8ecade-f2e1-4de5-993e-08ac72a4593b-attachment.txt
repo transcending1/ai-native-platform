@@ -1,0 +1,3 @@
+[32mINFO    [0m info:user.py:50 用户 testuser 登录成功，IP: 127.0.0.1
+[31m[1mERROR   [0m error:user.py:95 登出过程中发生错误: 'RefreshToken' object has no attribute 'blacklist'
+[31m[1mERROR   [0m django.request:log.py:253 Internal Server Error: /user/users/logout/

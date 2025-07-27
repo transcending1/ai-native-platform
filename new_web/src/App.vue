@@ -1,30 +1,24 @@
 <!-- src/App.vue -->
 <template>
-  <Header />
   <div id="app">
-    <el-main class="p-4">
+    <!-- 登录页面不使用布局 -->
+    <router-view v-if="$route.name === 'Login'" />
+    
+    <!-- 其他页面使用统一布局 -->
+    <Layout v-else>
       <router-view />
-    </el-main>
+    </Layout>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import Header from './components/header.vue'
-
-const route = useRoute()
-const router = useRouter()
-const activeMenu = ref(route.path)
-
-watch(
-  () => route.path,
-  (newPath) => {
-    activeMenu.value = newPath
-  }
-)
-
-const handleSelect = (key) => {
-  router.push(key)
-}
+// 应用入口组件
+import Layout from './components/Layout.vue'
 </script>
+
+<style>
+/* 全局样式可以在这里定义 */
+#app {
+  min-height: 100vh;
+}
+</style>

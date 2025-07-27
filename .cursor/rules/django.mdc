@@ -4,6 +4,8 @@ alwaysApply: false
 # Django工程开发规范（分成整体项目和APP两个概念，APP下面又有子模块的概念）
 + 所有代码的书写都要以最优雅，最精简，最符合Django+DRF设计理念和规范的方式去实现。
 + 充分利用视图集中的组件，能少写业务代码就少写，尽可能把功能用视图集实现。
++ 你针对DRF框架生成的Swagger文档需要足够规范，和测试用例肯定要保持一致。不能Swagger调试和测试对不齐（加入：tags，description，summary，request (如果涉及到用户上传文件就用 multipart/form-data 的格式接收用户的上传，而不是序列化器)，responses，examples.让信息足够丰富，降低认知成本。）。
++ 每次你更新完成后写一个Markdown的文档说明一下你改过的内容，改动的文件结构也需要展示出来，树形结构展示。再给一波 后续优化建议
 
 # 所有代码都参考APP下面子模块：book_manager的代码规范。（注意：下面的book_manager就是user APP的子模块）
 1.整体项目依赖管理:/api/backend_management/requirements.txt

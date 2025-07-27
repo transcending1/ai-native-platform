@@ -1,0 +1,2 @@
+INFO     info:user.py:50 用户 testuser 登录成功，IP: 127.0.0.1
+INFO     info:user.py:132 用户 testuser 更新个人信息成功

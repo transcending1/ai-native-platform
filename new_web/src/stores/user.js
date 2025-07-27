@@ -22,9 +22,27 @@ export const useUserStore = defineStore('user', () => {
       isLoggedIn.value = true
       
       if (savedUserInfo) {
-        userInfo.value = JSON.parse(savedUserInfo)
+        try {
+          userInfo.value = JSON.parse(savedUserInfo)
+        } catch (error) {
+          console.error('解析用户信息失败:', error)
+          logout() // 清除无效数据
+        }
       }
+    } else if (savedToken || savedUserInfo || rememberLogin) {
+      // 如果数据不完整，清除所有相关数据
+      logout()
     }
+  }
+
+  // 检查Token是否可能过期（简单的本地检查）
+  const isTokenLikelyExpired = () => {
+    if (!token.value || !isLoggedIn.value) {
+      return true
+    }
+    // 这里可以添加更复杂的token过期检查逻辑
+    // 比如解析JWT token的过期时间
+    return false
   }
 
   // 登录
@@ -63,6 +81,7 @@ export const useUserStore = defineStore('user', () => {
     initUserState,
     login,
     logout,
-    updateUserInfo
+    updateUserInfo,
+    isTokenLikelyExpired
   }
 }) 

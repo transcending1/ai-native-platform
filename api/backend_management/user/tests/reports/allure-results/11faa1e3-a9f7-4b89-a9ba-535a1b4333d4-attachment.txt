@@ -1,0 +1,2 @@
+WARNING  warning:user.py:60 用户 testuser 登录失败，错误: {'password': [ErrorDetail(string='This field is required.', code='required')]}
+WARNING  django.request:log.py:253 Bad Request: /user/users/login/

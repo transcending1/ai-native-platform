@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'drf_yasg',  # swagger
     'corsheaders',  # 跨域
     'rest_framework_simplejwt',  # JWT
+    'rest_framework_simplejwt.token_blacklist',  # JWT token黑名单
     'django_apscheduler',  # 定时任务
     'django_redis',  # redis
     'django_filters',  # django-filter
@@ -118,6 +119,41 @@ REST_FRAMEWORK = {
     ],
     'EXCEPTION_HANDLER': 'errors.global_exception_handler',
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend']
+}
+
+# JWT配置
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),  # 访问token有效期1小时
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=15),    # 刷新token有效期15天（满足15天免登录需求）
+    'ROTATE_REFRESH_TOKENS': True,                   # 刷新token时是否生成新的refresh token
+    'BLACKLIST_AFTER_ROTATION': True,               # 是否将旧的refresh token列入黑名单
+    'UPDATE_LAST_LOGIN': True,                       # 是否更新最后登录时间
+    
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+    'JWK_URL': None,
+    'LEEWAY': 0,
+
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
+
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
+
+    'JTI_CLAIM': 'jti',
+
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=60),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=15),
 }
 
 # Spectacular 配置
@@ -235,31 +271,26 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 MEDIA_URL = '/media/'  # 默认存储在项目根目录下的media文件夹
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # 默认存储在项目根目录下的media文件夹
 
+# 腾讯云COS配置 - 修正配置键名与cos_storage.py一致
+COS_SECRET_ID = os.getenv('TENCENT_COS_SECRET_ID', 'test_secret_id')
+COS_SECRET_KEY = os.getenv('TENCENT_COS_SECRET_KEY', 'test_secret_key') 
+COS_REGION = os.getenv('TENCENT_COS_REGION', 'ap-beijing')
+COS_BUCKET = os.getenv('TENCENT_COS_BUCKET', 'test-bucket')
+COS_URL = os.getenv('TENCENT_COS_DOMAIN', 'https://test-bucket.cos.ap-beijing.myqcloud.com')
+
 STORAGES = {
     'staticfiles': {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
     },
     "default": {
-        # django default storage file system
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        # 使用腾讯云存储
+        "BACKEND": "utils.cos_storage.TencentCOSStorage",
     }
 }
 
 error_logger = logging.getLogger('error').error
 warning_logger = logging.getLogger('warning').warning
 info_logger = logging.getLogger('info').info
-
-# 腾讯云COS配置
-TENCENT_COS_SETTINGS = {
-    'SECRET_ID': os.getenv('TENCENT_COS_SECRET_ID', ''),
-    'SECRET_KEY': os.getenv('TENCENT_COS_SECRET_KEY', ''),
-    'REGION': os.getenv('TENCENT_COS_REGION', 'ap-beijing'),
-    'BUCKET': os.getenv('TENCENT_COS_BUCKET', ''),
-    'DOMAIN': os.getenv('TENCENT_COS_DOMAIN', ''),  # 自定义域名，可选
-    'IS_HTTPS': True,  # 是否使用HTTPS
-}
-
-DEFAULT_FILE_STORAGE = 'utils.cos_storage.TencentCOSStorage'
 
 # 文件上传设置
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB

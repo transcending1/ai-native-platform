@@ -1,0 +1,2 @@
+2025-07-26 02:30:29 warning  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/user/views/user.py:60 user:login WARNING- 用户 testuser 登录失败，错误: {'non_field_errors': [ErrorDetail(string='用户名或密码错误', code='invalid')]}
+2025-07-26 02:30:29 warning  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/user/views/user.py:60 user:login WARNING- 用户 testuser 登录失败，错误: {'non_field_errors': [ErrorDetail(string='用户名或密码错误', code='invalid')]}

@@ -1,0 +1,1 @@
+[32mINFO    [0m info:user.py:543 用户 testuser 删除头像成功

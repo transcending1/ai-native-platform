@@ -1,0 +1,1 @@
+{"name": "test_upload_avatar_success", "status": "passed", "description": "\n        测试头像上传成功\n        ", "start": 1753520195620, "stop": 1753520226827, "uuid": "db59950a-1f4e-4c62-8092-188ec0eca0a6", "testCaseId": "c7da1b0a4ea9b82f7533d66c58dc9678", "fullName": "user.tests.test_avatar.UserAvatarTestCase#test_upload_avatar_success"}

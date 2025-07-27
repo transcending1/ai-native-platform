@@ -5,6 +5,11 @@ alwaysApply: false
 + 所有代码的书写都要以最优雅，最精简，最符合Vue3 + element-plus + vue-router + pinia + tailwindcss的设计理念和规范的方式去实现。
 + 概念：1.整体项目 2.子项目（一个页面） 3.组件（一个页面中的构成部分）
 + 所有调用API的逻辑都放到Vue文件里面，高内聚即可，没必要单独放到一个js文件中。
++ 默认后端服务已经启动了，你可以直接调用API进行对接，API地址存储在：new_web下面的文件 .env.development 里面
++ 你可以调用：new_web/src/api.js  这个里面的API方法进行对接，在Vue里面导包即可。
++ 接口文档你参考 api_schema.yaml 这个Swagger文件规范即可，然后去对接API
++ 每次你更新完成后写一个Markdown的文档说明一下你改过的内容，改动的文件结构也需要展示出来，树形结构展示。再给一波 后续优化建议
++ web端已经启动hmr。没必要每次都去启动web端的工程了
 
 # 整体项目规范
 1. 整体项目静态资源路径：new_web/src/assets

@@ -1,11 +1,9 @@
 <template>
-  <div class="container mx-auto p-4">
-    <SearchBar />
-    <ApplicationTable class="mt-4" />
+  <div class="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <LoginForm />
   </div>
 </template>
 
 <script setup>
-import SearchBar from './components/SearchBar.vue'
-import ApplicationTable from './components/ApplicationTable.vue'
+import LoginForm from './components/LoginForm.vue'
 </script>

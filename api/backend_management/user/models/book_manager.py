@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 
 
 class Bookstore(models.Model):
@@ -19,7 +20,7 @@ class Book(models.Model):
 
 
 class PurchaseRecord(models.Model):
-    user = models.ForeignKey(User, related_name='purchase_records', on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='purchase_records', on_delete=models.CASCADE)
     bookstore = models.ForeignKey(Bookstore, related_name='purchase_records', on_delete=models.CASCADE)
     purchaseDate = models.DateField()
     totalAmount = models.FloatField()
