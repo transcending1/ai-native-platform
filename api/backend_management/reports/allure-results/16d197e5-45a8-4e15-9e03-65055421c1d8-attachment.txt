@@ -1,0 +1,2 @@
+2025-07-30 02:38:08 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/knowledge_management.py:215 knowledge_management:create INFO- 用户 testuser 在知识库 3 创建文档: 测试工具知识
+2025-07-30 02:38:08 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/knowledge_management.py:215 knowledge_management:create INFO- 用户 testuser 在知识库 3 创建文档: 测试工具知识

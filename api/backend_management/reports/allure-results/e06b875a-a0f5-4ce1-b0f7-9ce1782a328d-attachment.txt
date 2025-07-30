@@ -1,0 +1,1 @@
+[31m[1mERROR   [0m django.request:log.py:253 Internal Server Error: /knowledge/namespaces/10/documents/

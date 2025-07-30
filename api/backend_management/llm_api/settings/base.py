@@ -30,7 +30,8 @@ INSTALLED_APPS = [
     'drf_spectacular',  # 注册应用
     'drf_spectacular_sidecar',  # 如果安装了 sidecar
     'user',
-    'storages'
+    'storages',
+    'knowledge',
 ]
 
 MIDDLEWARE = [

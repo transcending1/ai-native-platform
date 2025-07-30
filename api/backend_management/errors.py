@@ -11,7 +11,7 @@ def global_exception_handler(exc, context):
     # If the response is None, it means that exception is not managed by DRF.
     # We can handle it ourselves, or leave it to Django to handle.
     if response is None:
-        return Response({"error": "Unexpected error."}, status=500)
+        return Response({"error": str(exc)}, status=500)
 
     # If the response is not None, it means it's managed by DRF.
     # We can add some customized process here.

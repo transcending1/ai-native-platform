@@ -110,4 +110,223 @@ export const userAPI = {
   }
 }
 
+// 用户管理相关API（管理员权限）
+export const userManagementAPI = {
+  // 获取用户列表
+  getUserList: (params = {}) => {
+    return apiClient.get('/user/admin/management/', { params })
+  },
+
+  // 获取用户详情
+  getUserDetail: (id) => {
+    return apiClient.get(`/user/admin/management/${id}/`)
+  },
+
+  // 创建用户
+  createUser: (data) => {
+    return apiClient.post('/user/admin/management/', data)
+  },
+
+  // 更新用户信息
+  updateUser: (id, data) => {
+    return apiClient.put(`/user/admin/management/${id}/`, data)
+  },
+
+  // 删除用户
+  deleteUser: (id) => {
+    return apiClient.delete(`/user/admin/management/${id}/`)
+  },
+
+  // 切换用户状态（启用/禁用）
+  toggleUserStatus: (id) => {
+    return apiClient.post(`/user/admin/management/${id}/toggle_status/`)
+  },
+
+  // 重置用户密码
+  resetUserPassword: (id, data) => {
+    return apiClient.post(`/user/admin/management/${id}/reset_password/`, data)
+  },
+
+  // 上传用户头像
+  uploadUserAvatar: (id, avatarFile) => {
+    const formData = new FormData()
+    formData.append('avatar', avatarFile)
+    return apiClient.post(`/user/admin/management/${id}/upload_avatar/`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+  },
+
+  // 删除用户头像
+  deleteUserAvatar: (id) => {
+    return apiClient.delete(`/user/admin/management/${id}/delete_avatar/`)
+  }
+}
+
+// 知识库管理相关API
+export const knowledgeAPI = {
+  // 获取知识库列表
+  getNamespaces: (params = {}) => {
+    return apiClient.get('/knowledge/namespaces/', { params })
+  },
+
+  // 获取知识库详情
+  getNamespace: (id) => {
+    return apiClient.get(`/knowledge/namespaces/${id}/`)
+  },
+
+  // 创建知识库
+  createNamespace: (data) => {
+    return apiClient.post('/knowledge/namespaces/', data)
+  },
+
+  // 更新知识库
+  updateNamespace: (id, data) => {
+    return apiClient.put(`/knowledge/namespaces/${id}/`, data)
+  },
+
+  // 部分更新知识库
+  patchNamespace: (id, data) => {
+    return apiClient.patch(`/knowledge/namespaces/${id}/`, data)
+  },
+
+  // 删除知识库
+  deleteNamespace: (id) => {
+    return apiClient.delete(`/knowledge/namespaces/${id}/`)
+  },
+
+  // 更新知识库基本信息
+  updateBasicInfo: (id, data) => {
+    return apiClient.patch(`/knowledge/namespaces/${id}/update_basic/`, data)
+  },
+
+  // 添加协作者
+  addCollaborator: (id, data) => {
+    return apiClient.post(`/knowledge/namespaces/${id}/add_collaborator/`, data)
+  },
+
+  // 更新协作者权限
+  updateCollaborator: (id, userId, data) => {
+    return apiClient.patch(`/knowledge/namespaces/${id}/collaborators/${userId}/`, data)
+  },
+
+  // 移除协作者
+  removeCollaborator: (id, userId) => {
+    return apiClient.delete(`/knowledge/namespaces/${id}/collaborators/${userId}/`)
+  },
+
+  // 文档管理相关API
+  // 获取文档列表
+  getDocuments: (namespaceId, params = {}) => {
+    return apiClient.get(`/knowledge/namespaces/${namespaceId}/documents/`, { params })
+  },
+
+  // 获取文档详情
+  getDocument: (namespaceId, documentId) => {
+    return apiClient.get(`/knowledge/namespaces/${namespaceId}/documents/${documentId}/`)
+  },
+
+  // 创建文档
+  createDocument: (namespaceId, data) => {
+    return apiClient.post(`/knowledge/namespaces/${namespaceId}/documents/`, data)
+  },
+
+  // 更新文档
+  updateDocument: (namespaceId, documentId, data) => {
+    return apiClient.put(`/knowledge/namespaces/${namespaceId}/documents/${documentId}/`, data)
+  },
+
+  // 删除文档
+  deleteDocument: (namespaceId, documentId) => {
+    return apiClient.delete(`/knowledge/namespaces/${namespaceId}/documents/${documentId}/`)
+  },
+
+  // 移动文档
+  moveDocument: (namespaceId, documentId, data) => {
+    return apiClient.post(`/knowledge/namespaces/${namespaceId}/documents/${documentId}/move/`, data)
+  },
+
+  // 获取文档树
+  getDocumentTree: (namespaceId) => {
+    return apiClient.get(`/knowledge/namespaces/${namespaceId}/documents/tree/`)
+  },
+
+  // 分类管理相关API
+  // 获取分类列表
+  getCategories: (namespaceId, params = {}) => {
+    return apiClient.get(`/knowledge/namespaces/${namespaceId}/categories/`, { params })
+  },
+
+  // 创建分类
+  createCategory: (namespaceId, data) => {
+    return apiClient.post(`/knowledge/namespaces/${namespaceId}/categories/`, data)
+  },
+
+  // 更新分类
+  updateCategory: (namespaceId, categoryId, data) => {
+    return apiClient.put(`/knowledge/namespaces/${namespaceId}/categories/${categoryId}/`, data)
+  },
+
+  // 删除分类
+  deleteCategory: (namespaceId, categoryId) => {
+    return apiClient.delete(`/knowledge/namespaces/${namespaceId}/categories/${categoryId}/`)
+  },
+
+  // 标签管理相关API
+  // 获取标签列表
+  getTags: (namespaceId, params = {}) => {
+    return apiClient.get(`/knowledge/namespaces/${namespaceId}/tags/`, { params })
+  },
+
+  // 创建标签
+  createTag: (namespaceId, data) => {
+    return apiClient.post(`/knowledge/namespaces/${namespaceId}/tags/`, data)
+  },
+
+  // 评论相关API
+  // 获取评论列表
+  getComments: (namespaceId, documentId, params = {}) => {
+    return apiClient.get(`/knowledge/namespaces/${namespaceId}/documents/${documentId}/comments/`, { params })
+  },
+
+  // 创建评论
+  createComment: (namespaceId, documentId, data) => {
+    return apiClient.post(`/knowledge/namespaces/${namespaceId}/documents/${documentId}/comments/`, data)
+  },
+
+  // 版本管理相关API
+  // 获取版本列表
+  getVersions: (namespaceId, documentId, params = {}) => {
+    return apiClient.get(`/knowledge/namespaces/${namespaceId}/documents/${documentId}/versions/`, { params })
+  },
+
+  // 创建版本
+  createVersion: (namespaceId, documentId, data) => {
+    return apiClient.post(`/knowledge/namespaces/${namespaceId}/documents/${documentId}/versions/`, data)
+  },
+
+  // 工具知识相关API
+  // 执行工具
+  executeTool: (namespaceId, documentId, data) => {
+    return apiClient.post(`/knowledge/namespaces/${namespaceId}/documents/${documentId}/execute_tool/`, data)
+  },
+
+  // 获取工具执行历史
+  getToolExecutions: (namespaceId, documentId, params = {}) => {
+    return apiClient.get(`/knowledge/namespaces/${namespaceId}/documents/${documentId}/tool_executions/`, { params })
+  },
+
+  // 表单知识相关API
+  // 提交表单数据
+  submitFormData: (namespaceId, documentId, data) => {
+    return apiClient.post(`/knowledge/namespaces/${namespaceId}/documents/${documentId}/submit_form_data/`, data)
+  },
+
+  // 获取表单数据
+  getFormData: (namespaceId, documentId, params = {}) => {
+    return apiClient.get(`/knowledge/namespaces/${namespaceId}/documents/${documentId}/form_data/`, { params })
+  }
+}
+
 export default apiClient;

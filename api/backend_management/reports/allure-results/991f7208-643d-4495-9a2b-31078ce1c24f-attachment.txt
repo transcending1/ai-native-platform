@@ -1,0 +1,2 @@
+2025-07-27 08:26:04 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:330 namespace:update_basic INFO- 用户 user1 更新了知识库 更新后的名称 的基本信息
+2025-07-27 08:26:04 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:330 namespace:update_basic INFO- 用户 user1 更新了知识库 更新后的名称 的基本信息

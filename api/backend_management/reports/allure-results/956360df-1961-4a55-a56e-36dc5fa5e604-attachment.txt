@@ -1,0 +1,3 @@
+[33mWARNING [0m django.request:log.py:253 Not Found: /api/user/auth/login/
+[1m[31mERROR   [0m error:knowledge_management.py:221 创建文档验证失败: {'tool_data': {'input_schema': [ErrorDetail(string="input_schema的type必须是'object'", code='invalid')]}}
+[33mWARNING [0m django.request:log.py:253 Bad Request: /knowledge/namespaces/10/documents/

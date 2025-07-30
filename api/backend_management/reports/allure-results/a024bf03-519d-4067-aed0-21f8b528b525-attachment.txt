@@ -1,0 +1,2 @@
+[32mINFO    [0m info:namespace.py:183 用户 user1 将 user2 添加为知识库 兼容性测试知识库 的协作者
+[32mINFO    [0m info:namespace.py:255 用户 user1 更新了知识库 兼容性测试知识库 中协作者 user2 的权限

@@ -53,8 +53,8 @@
           <span v-if="!isCollapsed">首页</span>
         </router-link>
 
-        <!-- 系统管理 -->
-        <div class="mb-2 relative">
+        <!-- 系统管理 - 仅管理员可见 -->
+        <div v-if="isAdmin" class="mb-2 relative">
           <div 
             @click.stop="toggleSystemMenu()"
             class="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 cursor-pointer"
@@ -88,10 +88,6 @@
               部门管理
             </div>
             
-            <div class="flex items-center px-3 py-2 text-sm text-gray-600 rounded-md hover:bg-blue-50 hover:text-blue-600">
-              <span class="mr-3">📋</span>
-              菜单管理
-            </div>
           </div>
 
           <!-- 折叠状态下的浮动子菜单 -->
@@ -115,75 +111,19 @@
               部门管理
             </div>
             
-            <div class="flex items-center px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 cursor-pointer">
-              <span class="mr-3">📋</span>
-              菜单管理
-            </div>
           </div>
         </div>
 
-        <!-- 权限管理 -->
-        <div class="mb-2 relative">
-          <div 
-            @click.stop="togglePermissionMenu()"
-            class="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 cursor-pointer"
-            :class="{'justify-center': isCollapsed, 'justify-between': !isCollapsed}"
-            :title="isCollapsed ? '权限管理' : ''"
-          >
-            <div class="flex items-center">
-              <span :class="isCollapsed ? 'mr-0' : 'mr-3'">🔐</span>
-              <span v-if="!isCollapsed">权限管理</span>
-            </div>
-            <span v-if="!isCollapsed" class="text-gray-400" :class="{'transform rotate-180': permissionMenuOpen}">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-              </svg>
-            </span>
-          </div>
-
-          <!-- 展开状态下的子菜单 -->
-          <div v-show="permissionMenuOpen && !isCollapsed" class="ml-6 mt-1 space-y-1">
-            <div class="flex items-center px-3 py-2 text-sm text-gray-600 rounded-md hover:bg-blue-50 hover:text-blue-600 cursor-pointer">
-              <span class="mr-3">🔑</span>
-              角色管理
-            </div>
-            
-            <div class="flex items-center px-3 py-2 text-sm text-gray-600 rounded-md hover:bg-blue-50 hover:text-blue-600 cursor-pointer">
-              <span class="mr-3">🛡️</span>
-              权限分配
-            </div>
-          </div>
-
-          <!-- 折叠状态下的浮动子菜单 -->
-          <div 
-            v-show="permissionMenuOpen && isCollapsed" 
-            class="absolute left-16 top-0 bg-white shadow-xl border border-gray-200 rounded-md py-2 min-w-48"
-            style="z-index: 9999;"
-            @click.stop
-          >
-            <div class="flex items-center px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 cursor-pointer">
-              <span class="mr-3">🔑</span>
-              角色管理
-            </div>
-            
-            <div class="flex items-center px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 cursor-pointer">
-              <span class="mr-3">🛡️</span>
-              权限分配
-            </div>
-          </div>
-        </div>
-
-        <!-- 文件管理 -->
-        <div class="mb-2">
-          <div 
-            class="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"
-            :class="{'justify-center': isCollapsed}"
-            :title="isCollapsed ? '文件管理' : ''"
-          >
-            <span :class="isCollapsed ? 'mr-0' : 'mr-3'">📁</span>
-            <span v-if="!isCollapsed">文件管理</span>
-          </div>
-        </div>
+        <!-- 知识管理 -->
+        <router-link 
+          to="/knowledge-namespace"
+          class="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 mb-1"
+          :class="{'bg-blue-50 text-blue-600': $route.path.startsWith('/knowledge'), 'justify-center': isCollapsed}"
+          :title="isCollapsed ? '知识管理' : ''"
+        >
+          <span :class="isCollapsed ? 'mr-0' : 'mr-3'">📚</span>
+          <span v-if="!isCollapsed">知识管理</span>
+        </router-link>
 
       </div>
     </nav>
@@ -219,8 +159,6 @@ const router = useRouter()
 const userStore = useUserStore()
 const systemMenuOpen = ref(true) // 默认展开系统管理
 const permissionMenuOpen = ref(false)
-const logMenuOpen = ref(false)
-const noticeMenuOpen = ref(false)
 
 // 折叠状态
 const isCollapsed = ref(appConfig.sidebar.collapsed)
@@ -246,6 +184,11 @@ const currentUserAvatar = computed(() => {
   return null
 })
 
+// 检查当前用户是否为管理员
+const isAdmin = computed(() => {
+  return userStore.userInfo && (userStore.userInfo.role === 'admin' || userStore.userInfo.role === 'administrator')
+})
+
 const toggleSystemMenu = () => {
   systemMenuOpen.value = !systemMenuOpen.value
   // 在折叠状态下，如果打开了系统菜单，则关闭其他菜单
@@ -254,21 +197,6 @@ const toggleSystemMenu = () => {
   }
 }
 
-const togglePermissionMenu = () => {
-  permissionMenuOpen.value = !permissionMenuOpen.value
-  // 在折叠状态下，如果打开了权限菜单，则关闭其他菜单
-  if (isCollapsed.value && permissionMenuOpen.value) {
-    systemMenuOpen.value = false
-  }
-}
-
-const toggleLogMenu = () => {
-  logMenuOpen.value = !logMenuOpen.value
-}
-
-const toggleNoticeMenu = () => {
-  noticeMenuOpen.value = !noticeMenuOpen.value
-}
 
 const toggleCollapse = () => {
   isCollapsed.value = !isCollapsed.value

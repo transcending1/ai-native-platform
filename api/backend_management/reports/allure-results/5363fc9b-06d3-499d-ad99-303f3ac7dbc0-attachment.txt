@@ -1,0 +1,2 @@
+2025-07-30 02:29:23 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/knowledge_management.py:508 knowledge_management:submit_form_data INFO- 用户 testuser 提交表单数据: 用户信息表单
+2025-07-30 02:29:23 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/knowledge_management.py:508 knowledge_management:submit_form_data INFO- 用户 testuser 提交表单数据: 用户信息表单

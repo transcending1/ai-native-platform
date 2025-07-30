@@ -1,0 +1,2 @@
+[33mWARNING [0m django.request:log.py:253 Not Found: /api/user/auth/login/
+[32mINFO    [0m info:knowledge_management.py:508 用户 testuser 提交表单数据: 用户信息表单

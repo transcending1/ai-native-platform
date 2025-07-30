@@ -5,6 +5,8 @@ import Home from '../views/Home/Main.vue'
 import Login from '../views/Login/Main.vue'
 import UserManagement from "../views/UserManagement/Main.vue"
 import UserInfo from "../views/UserInfo/Main.vue"
+import KnowledgeNamespace from "../views/KnowledgeNamespace/Main.vue"
+import KnowledgeManagement from "../views/KnowledgeManagement/Main.vue"
 
 const routes = [
   {
@@ -38,6 +40,29 @@ const routes = [
       requiresAuth: true,
       breadcrumb: [
         { name: '个人中心', path: '/user-info' }
+      ]
+    }
+  },
+  {
+    path: '/knowledge-namespace',
+    name: 'KnowledgeNamespace',
+    component: KnowledgeNamespace,
+    meta: { 
+      requiresAuth: true,
+      breadcrumb: [
+        { name: '知识管理', path: '/knowledge-namespace' }
+      ]
+    }
+  },
+  {
+    path: '/knowledge-management/:namespaceId',
+    name: 'KnowledgeManagement',
+    component: KnowledgeManagement,
+    meta: { 
+      requiresAuth: true,
+      breadcrumb: [
+        { name: '知识管理', path: '/knowledge-namespace' },
+        { name: '知识库管理', path: '/knowledge-management' }
       ]
     }
   }

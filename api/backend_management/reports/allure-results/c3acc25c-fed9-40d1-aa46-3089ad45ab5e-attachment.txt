@@ -1,0 +1,2 @@
+2025-07-30 02:29:24 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/knowledge_management.py:255 knowledge_management:update INFO- 用户 testuser 更新文档: 更新后的工具知识
+2025-07-30 02:29:24 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/knowledge_management.py:255 knowledge_management:update INFO- 用户 testuser 更新文档: 更新后的工具知识

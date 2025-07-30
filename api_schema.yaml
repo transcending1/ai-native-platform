@@ -4,13 +4,24 @@ info:
   version: 0.0.1
   description: AI Native Platform
 paths:
-  /user/delete_avatar/:
-    delete:
-      operationId: user_delete_avatar
-      description: 删除当前用户的头像
-      summary: 删除用户头像
+  /knowledge/namespaces/{namespace_pk}/documents/:
+    get:
+      operationId: knowledge_namespaces_documents_list
+      description: 获取文档列表
+      parameters:
+      - in: path
+        name: namespace_pk
+        schema:
+          type: string
+        required: true
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
       tags:
-      - 用户头像
+      - knowledge
       security:
       - jwtAuth: []
       responses:
@@ -18,138 +29,183 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AvatarDeleteResponse'
-              examples:
-                头像删除成功响应:
-                  value:
-                    code: 200
-                    message: 头像删除成功
+                $ref: '#/components/schemas/PaginatedKnowledgeDocumentListList'
           description: ''
-        '401':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: ''
-        '500':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: ''
-  /user/upload_avatar/:
     post:
-      operationId: user_upload_avatar
-      description: 上传或更新当前用户的头像，支持jpg、png、gif、webp格式，最大5MB
-      summary: 上传用户头像
+      operationId: knowledge_namespaces_documents_create
+      description: 创建文档
+      parameters:
+      - in: path
+        name: namespace_pk
+        schema:
+          type: string
+        required: true
       tags:
-      - 用户头像
+      - knowledge
       requestBody:
         content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeDocumentCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/KnowledgeDocumentCreate'
           multipart/form-data:
             schema:
-              type: object
-              properties:
-                avatar:
-                  type: string
-                  format: binary
-                  description: 用户头像文件
+              $ref: '#/components/schemas/KnowledgeDocumentCreate'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeDocumentCreate'
+          description: ''
+  /knowledge/namespaces/{namespace_pk}/documents/{id}/:
+    get:
+      operationId: knowledge_namespaces_documents_retrieve
+      description: 获取文档详情
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: namespace_pk
+        schema:
+          type: string
+        required: true
+      tags:
+      - knowledge
       security:
       - jwtAuth: []
       responses:
         '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AvatarUploadResponse'
-              examples:
-                头像上传成功响应:
-                  value:
-                    code: 200
-                    message: 头像上传成功
-                    data:
-                      avatar_url: https://test-bucket.cos.ap-beijing.myqcloud.com/avatars/1/abc123.jpg
-          description: ''
-        '400':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                头像上传失败响应:
-                  value:
-                    code: 400
-                    message: 头像上传失败
-                    errors:
-                      avatar:
-                      - 文件大小不能超过5MB
-          description: ''
-        '401':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: ''
-        '500':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          description: ''
+          description: No response body
+    put:
+      operationId: knowledge_namespaces_documents_update
+      description: 更新文档
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: namespace_pk
+        schema:
+          type: string
+        required: true
+      tags:
+      - knowledge
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: knowledge_namespaces_documents_destroy
+      description: 删除文档
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: namespace_pk
+        schema:
+          type: string
+        required: true
+      tags:
+      - knowledge
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
 components:
   schemas:
-    ErrorResponse:
+    KnowledgeDocumentCreate:
       type: object
-      description: 错误响应序列化器
+      description: 知识文档创建序列化器 - 简化的创建接口
       properties:
-        code:
+        title:
+          type: string
+          title: 标题
+          description: 知识文档或文件夹的标题
+          maxLength: 255
+        content:
+          type: string
+          nullable: true
+          title: 内容
+          description: 知识文档的内容，支持Markdown格式
+        summary:
+          type: string
+          nullable: true
+          title: 摘要
+          description: 知识文档的摘要描述
+        doc_type:
+          allOf:
+          - $ref: '#/components/schemas/DocTypeEnum'
+          title: 文档类型
+          description: '文件夹、文档、工具或表单
+
+
+            * `folder` - 文件夹
+
+            * `document` - 文档
+
+            * `tool` - 工具
+
+            * `form` - 表单'
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusEnum'
+          title: 状态
+        parent:
           type: integer
-          description: 错误状态码
-        message:
-          type: string
-          description: 错误消息
-        errors:
-          type: object
-          additionalProperties: {}
-          description: 详细错误信息
-        error:
-          type: string
-          description: 错误详情
+          nullable: true
+          title: 父级文档
+          description: 用于构建层次结构
+        sort_order:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 排序序号
+          description: 在同级目录中的排序序号，数字越小排序越靠前
+        is_public:
+          type: boolean
+          title: 是否公开
+          description: 是否对知识库内所有成员公开
       required:
-      - code
-      - message
-    AvatarUploadResponse:
+      - title
+    PaginatedKnowledgeDocumentListList:
       type: object
-      description: 头像上传接口响应序列化器
-      properties:
-        code:
-          type: integer
-          description: 响应状态码
-        message:
-          type: string
-          description: 响应消息
-        data:
-          type: object
-          additionalProperties:
-            type: string
-          description: 头像数据
       required:
-      - code
-      - data
-      - message
-    AvatarDeleteResponse:
-      type: object
-      description: 头像删除接口响应序列化器
+      - count
+      - results
       properties:
-        code:
+        count:
           type: integer
-          description: 响应状态码
-        message:
+          example: 123
+        next:
           type: string
-          description: 响应消息
-      required:
-      - code
-      - message
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeDocumentList'
   securitySchemes:
     jwtAuth:
       type: http

@@ -1,0 +1,1 @@
+[33mWARNING [0m django.request:log.py:253 Not Found: /namespaces/13/update_basic/

@@ -1,0 +1,1 @@
+[1m[31mERROR   [0m django.request:log.py:253 Internal Server Error: /knowledge/namespaces/1/categories/

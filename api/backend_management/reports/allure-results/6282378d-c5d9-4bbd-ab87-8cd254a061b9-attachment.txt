@@ -1,0 +1,2 @@
+2025-07-27 08:27:17 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:110 namespace:perform_create INFO- 用户 user1 创建了知识库: API测试知识库
+2025-07-27 08:27:17 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:110 namespace:perform_create INFO- 用户 user1 创建了知识库: API测试知识库
