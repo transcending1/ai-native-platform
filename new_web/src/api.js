@@ -1,58 +1,109 @@
-import axios from 'axios';
+import axios from 'axios'
+import { ElMessage } from 'element-plus'
 
+// 创建axios实例
 const apiClient = axios.create({
-    baseURL: import.meta.env.VITE_APP_BASE_API, // 从环境变量获取 API 地址
-    timeout: 120000, // 设置超时时间为2分钟
-});
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
 
-// 可以添加请求拦截器和响应拦截器
+// 请求拦截器 - 添加认证token
 apiClient.interceptors.request.use(config => {
-    // 添加token
-    const token = localStorage.getItem("token")
-    if(token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config;
+  // 从localStorage获取token
+  const token = localStorage.getItem('token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  
+  return config
 }, error => {
-    return Promise.reject(error)
+  return Promise.reject(error)
 })
 
 // 响应拦截器 - 处理401错误自动跳转登录页
 apiClient.interceptors.response.use(res => {
-    return res
-}, error => {
-    // 处理401未授权错误 - Token过期或无效
-    if (error.response?.status === 401) {
-        console.warn('JWT Token已过期或无效，正在清除用户状态并跳转到登录页')
+  return res
+}, async error => {
+  const originalRequest = error.config
+  
+  // 处理401未授权错误 - Token过期或无效
+  if (error.response?.status === 401 && !originalRequest._retry) {
+    originalRequest._retry = true
+    
+    // 尝试使用refresh token刷新
+    const refreshToken = localStorage.getItem('refreshToken')
+    const rememberLogin = localStorage.getItem('rememberLogin')
+    
+    if (refreshToken && rememberLogin === 'true') {
+      try {
+        console.log('Token已过期，尝试刷新...')
         
-        // 清除本地存储的用户信息
-        localStorage.removeItem('token')
-        localStorage.removeItem('userInfo')
-        localStorage.removeItem('rememberLogin')
-        
-        // 显示错误提示（异步导入避免循环依赖）
-        import('element-plus').then(({ ElMessage }) => {
-            ElMessage.error('登录已过期，请重新登录')
-        }).catch(() => {
-            // 如果ElMessage加载失败，使用原生alert
-            alert('登录已过期，请重新登录')
+        // 调用刷新token接口
+        const refreshResponse = await apiClient.post('/user/refresh/', {
+          refresh: refreshToken
         })
         
-        // 更新Pinia store状态（异步导入避免循环依赖）
-        import('@/stores/user').then(({ useUserStore }) => {
+        if (refreshResponse.data.access) {
+          // 更新token
+          const newToken = refreshResponse.data.access
+          const newRefreshToken = refreshResponse.data.refresh
+          
+          // 更新localStorage
+          localStorage.setItem('token', newToken)
+          if (newRefreshToken) {
+            localStorage.setItem('refreshToken', newRefreshToken)
+          }
+          
+          // 更新请求头
+          originalRequest.headers.Authorization = `Bearer ${newToken}`
+          
+          // 更新Pinia store（异步导入避免循环依赖）
+          import('@/stores/user').then(({ useUserStore }) => {
             const userStore = useUserStore()
-            userStore.logout()
-        }).catch(err => {
-            console.error('清除用户状态失败:', err)
-        })
-        
-        // 如果当前不在登录页，则跳转到登录页
-        if (window.location.pathname !== '/login') {
-            window.location.href = '/login'
+            userStore.updateToken(newToken, newRefreshToken)
+          }).catch(err => {
+            console.error('更新用户状态失败:', err)
+          })
+          
+          console.log('Token刷新成功，重试原请求')
+          return apiClient(originalRequest)
         }
+      } catch (refreshError) {
+        console.error('Token刷新失败:', refreshError)
+        // 刷新失败，清除用户状态并跳转登录页
+      }
     }
     
-    return Promise.reject(error)
+    // 如果刷新失败或没有refresh token，清除用户状态并跳转登录页
+    console.warn('JWT Token已过期或无效，正在清除用户状态并跳转到登录页')
+    
+    // 清除本地存储的用户信息
+    localStorage.removeItem('token')
+    localStorage.removeItem('refreshToken')
+    localStorage.removeItem('userInfo')
+    localStorage.removeItem('rememberLogin')
+    
+    // 显示错误提示
+    ElMessage.error('登录已过期，请重新登录')
+    
+    // 更新Pinia store状态（异步导入避免循环依赖）
+    import('@/stores/user').then(({ useUserStore }) => {
+      const userStore = useUserStore()
+      userStore.logout()
+    }).catch(err => {
+      console.error('清除用户状态失败:', err)
+    })
+    
+    // 如果当前不在登录页，则跳转到登录页
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login'
+    }
+  }
+  
+  return Promise.reject(error)
 })
 
 // 用户认证相关API

@@ -110,15 +110,10 @@ const handleLogin = async () => {
     // 处理登录成功的响应
     if (response.data.code === 200) {
       const { data } = response.data
-      const { access, user } = data
+      const { access, refresh, user } = data
       
-      // 保存登录状态到store
-      userStore.login(user, access)
-      
-      // 保存记住登录状态
-      if (loginForm.rememberMe) {
-        localStorage.setItem('rememberLogin', 'true')
-      }
+      // 保存登录状态到store（包含refresh token）
+      userStore.login(user, access, refresh, loginForm.rememberMe)
       
       ElMessage.success('登录成功!')
       

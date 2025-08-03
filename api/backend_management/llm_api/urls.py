@@ -24,6 +24,10 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
     SpectacularRedocView
 )
+from rest_framework_simplejwt.views import (
+    TokenRefreshView,
+    TokenVerifyView
+)
 
 urlpatterns = [
 
@@ -32,6 +36,10 @@ urlpatterns = [
 
                   # 后台管理
                   path("admin/", admin.site.urls, name="admin"),
+
+                  # JWT Token相关端点
+                  path('user/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+                  path('user/verify/', TokenVerifyView.as_view(), name='token_verify'),
 
                   # 业务模块
                   path('user/', include('user.urls'), name='user'),

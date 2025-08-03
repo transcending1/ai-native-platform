@@ -39,12 +39,20 @@ class UserLoginSerializer(serializers.Serializer):
         """
         refresh = RefreshToken.for_user(user)
         
-        # 如果选择了15天免登录，refresh token已经在settings中配置为15天
-        # 如果没有选择免登录，可以设置较短的过期时间（比如1天）
-        if not remember_me:
+        # 根据是否选择15天免登录来设置不同的过期时间
+        if remember_me:
+            # 选择了15天免登录：refresh token使用15天，access token使用1小时
             from datetime import timedelta
-            # 设置refresh token过期时间为1天（不选择免登录的情况）
-            refresh.set_exp(lifetime=timedelta(days=1))
+            # refresh token已经在settings中配置为15天，不需要修改
+            # access token设置为1小时
+            refresh.access_token.set_exp(lifetime=timedelta(hours=24*7))
+        else:
+            # 没有选择免登录：refresh token使用1天，access token使用1小时
+            from datetime import timedelta
+            # 设置refresh token过期时间为1天
+            refresh.set_exp(lifetime=timedelta(days=7))
+            # access token设置为1小时
+            refresh.access_token.set_exp(lifetime=timedelta(hours=24*7))
             
         return {
             'refresh': str(refresh),

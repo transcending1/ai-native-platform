@@ -354,7 +354,8 @@ class TestUserAuthentication(TestCase):
             'username': 'newuser',
             'password': 'newpass123',
             'password_confirm': 'differentpass',
-            'email': 'newuser@example.com'
+            'email': 'newuser@example.com',
+            'phone': '13800138000'
         }
 
         response = self.client.post(url, data, format='json')
@@ -364,6 +365,45 @@ class TestUserAuthentication(TestCase):
 
         self.assertEqual(response_data['code'], 400)
         self.assertEqual(response_data['message'], '注册失败')
+
+    def test_token_refresh(self):
+        """
+        测试token刷新功能
+        """
+        # 首先登录获取token
+        login_url = '/user/login/'
+        login_data = {
+            'username': self.test_username,
+            'password': self.test_password,
+            'remember_me': True
+        }
+
+        login_response = self.client.post(login_url, login_data, format='json')
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+        
+        login_data = login_response.json()
+        refresh_token = login_data['data']['refresh']
+        
+        # 测试刷新token
+        refresh_url = '/user/refresh/'
+        refresh_data = {
+            'refresh': refresh_token
+        }
+
+        refresh_response = self.client.post(refresh_url, refresh_data, format='json')
+        self.assertEqual(refresh_response.status_code, status.HTTP_200_OK)
+        
+        refresh_response_data = refresh_response.json()
+        self.assertIn('access', refresh_response_data)
+        self.assertIn('refresh', refresh_response_data)
+        
+        # 验证新的access token可以正常使用
+        new_access_token = refresh_response_data['access']
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {new_access_token}')
+        
+        profile_url = '/user/profile/'
+        profile_response = self.client.get(profile_url)
+        self.assertEqual(profile_response.status_code, status.HTTP_200_OK)
 
     def test_user_register_duplicate_username(self):
         """
