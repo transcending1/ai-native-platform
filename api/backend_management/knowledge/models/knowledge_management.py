@@ -37,7 +37,13 @@ class KnowledgeDocument(models.Model):
         blank=True,
         null=True,
         verbose_name="内容",
-        help_text="知识文档的内容，支持Markdown格式"
+        help_text="知识文档的HTML内容"
+    )
+    markdown_content = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Markdown内容",
+        help_text="知识文档的Markdown格式内容，用于向量存储"
     )
     summary = models.TextField(
         blank=True,

@@ -1,7 +1,14 @@
-from rest_framework import serializers
+import base64
+import re
+import uuid
+
+import html2text
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+from rest_framework import serializers
+
 from ..models import (
-    Namespace,
     KnowledgeDocument,
     FormDataEntry,
     ToolExecution
@@ -14,6 +21,7 @@ class UserSimpleSerializer(serializers.ModelSerializer):
     """
     用户简单信息序列化器
     """
+
     class Meta:
         model = User
         fields = ['id', 'username', 'first_name', 'last_name', 'avatar']
@@ -61,14 +69,14 @@ class KnowledgeDocumentDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = KnowledgeDocument
         fields = [
-            'id', 'title', 'content', 'summary', 'doc_type', 'status',
-            'parent', 'sort_order', 'is_public', 'is_active', 
+            'id', 'title', 'content', 'markdown_content', 'summary', 'doc_type', 'status',
+            'parent', 'sort_order', 'is_public', 'is_active',
             'created_at', 'updated_at', 'creator', 'last_editor',
             'children', 'breadcrumbs', 'depth'
         ]
         read_only_fields = [
             'id', 'created_at', 'updated_at', 'creator', 'last_editor',
-            'breadcrumbs', 'depth'
+            'breadcrumbs', 'depth', 'markdown_content'
         ]
 
     def get_children(self, obj):
@@ -84,20 +92,20 @@ class KnowledgeDocumentDetailSerializer(serializers.ModelSerializer):
             # 检查父文档是否为文件夹类型
             if not value.is_folder:
                 raise serializers.ValidationError("父级必须是文件夹类型")
-            
+
             # 检查是否在同一个命名空间
             namespace_pk = self.context.get('namespace_pk')
             if value.namespace_id != namespace_pk:
                 raise serializers.ValidationError("父级文档必须在同一个知识库中")
-            
+
             # 防止循环引用（如果是更新操作）
             if self.instance and value == self.instance:
                 raise serializers.ValidationError("不能将自己设为父级")
-            
+
             # 防止将父级设为自己的子级
             if self.instance and value in self.instance.get_descendants():
                 raise serializers.ValidationError("不能将子级设为父级")
-        
+
         return value
 
     def create(self, validated_data):
@@ -106,20 +114,231 @@ class KnowledgeDocumentDetailSerializer(serializers.ModelSerializer):
         validated_data['creator'] = self.context['request'].user
         validated_data['last_editor'] = self.context['request'].user
         validated_data['namespace_id'] = self.context['namespace_pk']
-        
-        # 创建文档
+
+        # 先创建文档以获取ID
         document = super().create(validated_data)
-        
+
+        # 处理HTML内容中的base64图片（如果有的话）
+        if document.content:
+            processed_content = self._process_base64_images(
+                document.content,
+                document.namespace.id,
+                document.id
+            )
+
+            # 如果内容有变化，更新文档
+            if processed_content != document.content:
+                document.content = processed_content
+
+                # 转换为Markdown
+                markdown_content = self._html_to_markdown(processed_content)
+                document.markdown_content = markdown_content
+
+                document.save()
+
+                # 异步存储到向量数据库
+                if document.markdown_content and document.is_document:
+                    try:
+                        import asyncio
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        loop.run_until_complete(self._store_to_vector_database(document))
+                        loop.close()
+                    except Exception as e:
+                        from llm_api.settings.base import error_logger
+                        error_logger(f"向量数据库存储异步处理失败: {str(e)}")
+
         return document
+
+    def _process_base64_images(self, html_content, namespace_id, document_id):
+        """处理HTML中的base64图片，转换为COS存储的URL"""
+        if not html_content:
+            return html_content
+
+        # 查找所有base64图片
+        base64_pattern = r'<img[^>]*src="data:image/([^;]+);base64,([^"]+)"[^>]*>'
+
+        def replace_base64_image(match):
+            image_format = match.group(1)
+            base64_data = match.group(2)
+
+            try:
+                # 解码base64数据
+                image_data = base64.b64decode(base64_data)
+
+                # 生成文件名
+                file_name = f"{uuid.uuid4().hex}.{image_format}"
+                file_path = f"knowledge/{namespace_id}/{document_id}/{file_name}"
+
+                # 创建文件对象
+                file_obj = ContentFile(image_data, name=file_name)
+
+                # 保存到COS
+                file_url = default_storage.save(file_path, file_obj)
+                full_url = default_storage.url(file_url)
+
+                # 替换原始的img标签
+                return match.group(0).replace(f"data:image/{image_format};base64,{base64_data}", full_url)
+
+            except Exception as e:
+                # 如果转换失败，保持原始内容
+                return match.group(0)
+
+        # 替换所有base64图片
+        processed_content = re.sub(base64_pattern, replace_base64_image, html_content)
+        return processed_content
+
+    @staticmethod
+    def _html_to_markdown(html_content):
+        """将HTML转换为Markdown"""
+        if not html_content:
+            return ""
+
+        # 配置html2text
+        h = html2text.HTML2Text()
+        h.ignore_links = False
+        h.ignore_images = False
+        h.body_width = 0  # 不限制行宽
+
+        # 转换
+        markdown_content = h.handle(html_content)
+        return markdown_content.strip()
+
+    @staticmethod
+    async def _store_to_vector_database(document):
+        """存储到向量数据库"""
+        try:
+            from core.indexing.index import index
+            from langchain_core.documents import Document as LangchainDocument
+
+            if not document.markdown_content:
+                return
+
+            # 创建文档对象
+            doc = LangchainDocument(
+                page_content=document.markdown_content,
+                metadata={
+                    "tenant": str(document.creator.id),
+                    "owner": str(document.creator.id),
+                    "namespace": str(document.namespace.id),
+                    "source": f"document_{document.id}",
+                    "document_id": str(document.id),
+                    "title": document.title,
+                    "H1": "",
+                    "H2": "",
+                    "H3": "",
+                    "H4": "",
+                    "H5": "",
+                    "H6": "",
+                }
+            )
+
+            # 存储到向量数据库
+            await index(
+                document_id=str(document.id),
+                tenant=str(document.creator.id),
+                namespace=str(document.namespace.id),
+                doc=doc,
+            )
+
+        except Exception as e:
+            from llm_api.settings.base import error_logger
+            error_logger(f"存储到向量数据库失败: {str(e)}")
+
+    def _extract_image_urls(self, html_content):
+        """从HTML内容中提取图片URL"""
+        if not html_content:
+            return []
+        
+        # 匹配img标签中的src属性，只匹配COS存储的图片
+        pattern = r'<img[^>]*src="([^"]*knowledge/[^"]*)"[^>]*>'
+        matches = re.findall(pattern, html_content)
+        return matches
+
+    def _cleanup_removed_images(self, old_image_urls, new_image_urls):
+        """清理不再使用的图片"""
+        try:
+            # 计算删除的图片
+            removed_images = set(old_image_urls) - set(new_image_urls)
+            
+            # 删除不再使用的图片
+            for image_url in removed_images:
+                import asyncio
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    loop.run_until_complete(self._delete_cos_image(image_url))
+                    loop.close()
+                    from llm_api.settings.base import info_logger
+                    info_logger(f"已删除不再使用的图片: {image_url}")
+                except Exception as e:
+                    from llm_api.settings.base import error_logger
+                    error_logger(f"删除图片失败: {str(e)}")
+                        
+        except Exception as e:
+            from llm_api.settings.base import error_logger
+            error_logger(f"清理图片失败: {str(e)}")
+
+    async def _delete_cos_image(self, image_url):
+        """删除COS中的图片"""
+        try:
+            # 从URL中提取文件路径
+            if 'knowledge/' in image_url:
+                # 提取路径部分
+                path_start = image_url.find('knowledge/')
+                file_path = image_url[path_start:]
+                
+                # 删除COS文件
+                if default_storage.exists(file_path):
+                    default_storage.delete(file_path)
+                    from llm_api.settings.base import info_logger
+                    info_logger(f"已删除COS图片: {file_path}")
+                    
+        except Exception as e:
+            from llm_api.settings.base import error_logger
+            error_logger(f"删除COS图片失败: {str(e)}")
 
     def update(self, instance, validated_data):
         """更新文档"""
         # 设置最后编辑者
         validated_data['last_editor'] = self.context['request'].user
-        
+
+        # 获取更新前的图片列表（用于后续清理）
+        old_image_urls = self._extract_image_urls(instance.content) if instance.content else []
+
+        # 处理HTML内容中的base64图片
+        if 'content' in validated_data and validated_data['content']:
+            processed_content = self._process_base64_images(
+                validated_data['content'],
+                instance.namespace.id,
+                instance.id
+            )
+            validated_data['content'] = processed_content
+
+            # 转换为Markdown
+            markdown_content = self._html_to_markdown(processed_content)
+            validated_data['markdown_content'] = markdown_content
+
         # 更新文档
         document = super().update(instance, validated_data)
-        
+
+        # 处理图片引用变更
+        if 'content' in validated_data:
+            new_image_urls = self._extract_image_urls(document.content) if document.content else []
+            self._cleanup_removed_images(old_image_urls, new_image_urls)
+
+        # 异步存储到向量数据库
+        if document.markdown_content and document.is_document:
+            try:
+                import asyncio
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(self._store_to_vector_database(document))
+                loop.close()
+            except Exception as e:
+                from llm_api.settings.base import error_logger
+                error_logger(f"向量数据库存储异步处理失败: {str(e)}")
+
         return document
 
 
@@ -168,10 +387,10 @@ class KnowledgeDocumentCreateSerializer(serializers.ModelSerializer):
         validated_data['creator'] = self.context['request'].user
         validated_data['last_editor'] = self.context['request'].user
         validated_data['namespace_id'] = self.context['namespace_pk']
-        
+
         # 创建文档
         document = super().create(validated_data)
-        
+
         return document
 
 
@@ -191,12 +410,12 @@ class KnowledgeDocumentMoveSerializer(serializers.Serializer):
                     namespace_id=self.context['namespace_pk'],
                     doc_type='folder'
                 )
-                
+
                 # 防止循环引用
                 document = self.context['document']
                 if parent == document or parent in document.get_descendants():
                     raise serializers.ValidationError("不能移动到自己或子文档下")
-                
+
                 return parent
             except KnowledgeDocument.DoesNotExist:
                 raise serializers.ValidationError("目标文件夹不存在")
@@ -255,21 +474,21 @@ class ToolDataSerializer(serializers.Serializer):
                 'properties': {},
                 'required': []
             }
-        
+
         if not isinstance(value, dict):
             raise serializers.ValidationError("input_schema必须是JSON对象")
-        
+
         required_keys = ['type', 'properties']
         for key in required_keys:
             if key not in value:
                 raise serializers.ValidationError(f"input_schema缺少必需字段: {key}")
-        
+
         if value['type'] != 'object':
             raise serializers.ValidationError("input_schema的type必须是'object'")
-        
+
         if not isinstance(value['properties'], dict):
             raise serializers.ValidationError("properties必须是对象")
-        
+
         return value
 
     def validate_extra_params(self, value):
@@ -355,12 +574,12 @@ class FormDataSerializer(serializers.Serializer):
         """验证字段列表"""
         if not value:
             raise serializers.ValidationError("至少需要一个字段")
-        
+
         # 检查字段名重复
         field_names = [field['name'] for field in value]
         if len(field_names) != len(set(field_names)):
             raise serializers.ValidationError("字段名不能重复")
-        
+
         return value
 
 
@@ -380,7 +599,7 @@ class KnowledgeDocumentToolSerializer(KnowledgeDocumentDetailSerializer):
         if 'type_specific_data' in data and 'tool_data' not in data:
             data = data.copy()  # 避免修改原始数据
             data['tool_data'] = data['type_specific_data']
-        
+
         # 如果只提供了tool_data（工具数据更新场景），填充当前实例的基础字段
         if self.instance and len(data) == 1 and 'tool_data' in data:
             # 只更新工具数据的场景，保持其他字段不变
@@ -397,7 +616,7 @@ class KnowledgeDocumentToolSerializer(KnowledgeDocumentDetailSerializer):
                 'tool_data': data['tool_data']
             }
             data = enhanced_data
-        
+
         return super().to_internal_value(data)
 
     def to_representation(self, instance):
@@ -413,15 +632,15 @@ class KnowledgeDocumentToolSerializer(KnowledgeDocumentDetailSerializer):
         validated_data.pop('type_specific_data', None)
         tool_data = validated_data.pop('tool_data', None)
         validated_data['doc_type'] = 'tool'
-        
+
         # 创建文档
         instance = super().create(validated_data)
-        
+
         # 设置工具数据
         if tool_data:
             instance.set_tool_data(tool_data)
             instance.save()
-        
+
         return instance
 
     def update(self, instance, validated_data):
@@ -429,15 +648,15 @@ class KnowledgeDocumentToolSerializer(KnowledgeDocumentDetailSerializer):
         # 移除type_specific_data（如果存在），因为我们已经在to_internal_value中处理了
         validated_data.pop('type_specific_data', None)
         tool_data = validated_data.pop('tool_data', None)
-        
+
         # 更新基础字段
         instance = super().update(instance, validated_data)
-        
+
         # 更新工具数据
         if tool_data and instance.is_tool:
             instance.set_tool_data(tool_data)
             instance.save()
-        
+
         return instance
 
 
@@ -457,7 +676,7 @@ class KnowledgeDocumentFormSerializer(KnowledgeDocumentDetailSerializer):
         if 'type_specific_data' in data and 'form_data' not in data:
             data = data.copy()  # 避免修改原始数据
             data['form_data'] = data['type_specific_data']
-        
+
         # 如果只提供了form_data（表单数据更新场景），填充当前实例的基础字段
         if self.instance and len(data) == 1 and 'form_data' in data:
             # 只更新表单数据的场景，保持其他字段不变
@@ -474,7 +693,7 @@ class KnowledgeDocumentFormSerializer(KnowledgeDocumentDetailSerializer):
                 'form_data': data['form_data']
             }
             data = enhanced_data
-        
+
         return super().to_internal_value(data)
 
     def to_representation(self, instance):
@@ -490,15 +709,15 @@ class KnowledgeDocumentFormSerializer(KnowledgeDocumentDetailSerializer):
         validated_data.pop('type_specific_data', None)
         form_data = validated_data.pop('form_data', None)
         validated_data['doc_type'] = 'form'
-        
+
         # 创建文档
         instance = super().create(validated_data)
-        
+
         # 设置表单数据
         if form_data:
             instance.set_form_data(form_data)
             instance.save()
-        
+
         return instance
 
     def update(self, instance, validated_data):
@@ -506,15 +725,15 @@ class KnowledgeDocumentFormSerializer(KnowledgeDocumentDetailSerializer):
         # 移除type_specific_data（如果存在），因为我们已经在to_internal_value中处理了
         validated_data.pop('type_specific_data', None)
         form_data = validated_data.pop('form_data', None)
-        
+
         # 更新基础字段
         instance = super().update(instance, validated_data)
-        
+
         # 更新表单数据
         if form_data and instance.is_form:
             instance.set_form_data(form_data)
             instance.save()
-        
+
         return instance
 
 
@@ -559,4 +778,4 @@ class ToolExecutionSerializer(serializers.ModelSerializer):
         """创建工具执行记录"""
         validated_data['executor'] = self.context['request'].user
         validated_data['tool_document_id'] = self.context['tool_document_id']
-        return super().create(validated_data) 
+        return super().create(validated_data)

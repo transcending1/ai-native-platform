@@ -1,18 +1,21 @@
+import asyncio
+import uuid
+
+from django.core.files.storage import default_storage
+from django.db import transaction
+from django.db.models import Q
+from django.shortcuts import get_object_or_404
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 from rest_framework import viewsets, status, permissions, serializers
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
-from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
-from django.shortcuts import get_object_or_404
-from django.db.models import Q, F
-from django.db import transaction
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
 
+from llm_api.settings.base import info_logger, error_logger
 from ..models import (
     Namespace,
-    KnowledgeDocument,
-    FormDataEntry,
-    ToolExecution
+    KnowledgeDocument
 )
 from ..serializers import (
     KnowledgeDocumentListSerializer,
@@ -25,7 +28,6 @@ from ..serializers import (
     FormDataEntrySerializer,
     ToolExecutionSerializer
 )
-from llm_api.settings.base import info_logger, error_logger
 
 
 class KnowledgeBaseViewSet(viewsets.GenericViewSet):
@@ -38,11 +40,11 @@ class KnowledgeBaseViewSet(viewsets.GenericViewSet):
         """获取知识库对象"""
         namespace_pk = self.kwargs.get('namespace_pk')
         namespace = get_object_or_404(Namespace, id=namespace_pk, is_active=True)
-        
+
         # 检查访问权限
         if not namespace.can_access(self.request.user):
             raise PermissionDenied("您没有访问此知识库的权限")
-        
+
         return namespace
 
     def check_edit_permission(self, namespace):
@@ -62,7 +64,7 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
     """
     知识文档视图集
     """
-    
+
     def get_queryset(self):
         """获取文档查询集"""
         namespace = self.get_namespace()
@@ -128,7 +130,7 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
         """获取文档列表"""
         try:
             queryset = self.get_queryset()
-            
+
             # 过滤父文档
             parent_id = request.query_params.get('parent_id')
             if parent_id:
@@ -136,7 +138,7 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
                     queryset = queryset.filter(parent__isnull=True)
                 else:
                     queryset = queryset.filter(parent_id=parent_id)
-            
+
             # 搜索
             search = request.query_params.get('search')
             if search:
@@ -145,15 +147,15 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
                     Q(content__icontains=search) |
                     Q(summary__icontains=search)
                 )
-            
+
             # 文档类型过滤
             doc_type = request.query_params.get('doc_type')
             if doc_type:
                 queryset = queryset.filter(doc_type=doc_type)
-            
+
             # 排序
             queryset = queryset.order_by('sort_order', 'title')
-            
+
             serializer = self.get_serializer(queryset, many=True)
             return Response(serializer.data)
         except Exception as e:
@@ -178,11 +180,11 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
                 namespace=namespace,
                 is_active=True
             )
-            
+
             # 检查访问权限
             if not document.can_access(request.user):
                 raise PermissionDenied("您没有访问此文档的权限")
-            
+
             serializer = self.get_serializer(document)
             return Response(serializer.data)
         except PermissionDenied:
@@ -205,17 +207,17 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
         try:
             namespace = self.get_namespace()
             self.check_edit_permission(namespace)
-            
+
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             document = serializer.save()
-            
+
             # 返回详细信息
             detail_serializer = KnowledgeDocumentDetailSerializer(
-                document, 
+                document,
                 context=self.get_serializer_context()
             )
-            
+
             info_logger(f"用户 {request.user.username} 在知识库 {namespace_pk} 创建文档: {document.title}")
             return Response(detail_serializer.data, status=status.HTTP_201_CREATED)
         except PermissionDenied:
@@ -247,15 +249,15 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
                 namespace=namespace,
                 is_active=True
             )
-            
+
             # 检查编辑权限
             if not document.can_edit(request.user):
                 raise PermissionDenied("您没有编辑此文档的权限")
-            
+
             serializer = self.get_serializer(document, data=request.data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            
+
             info_logger(f"用户 {request.user.username} 更新文档: {document.title}")
             return Response(serializer.data)
         except PermissionDenied:
@@ -288,21 +290,28 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
                 namespace=namespace,
                 is_active=True
             )
-            
+
             # 检查编辑权限
             if not document.can_edit(request.user):
                 raise PermissionDenied("您没有删除此文档的权限")
-            
+
             with transaction.atomic():
+                # 收集要删除的文档列表（用于向量数据库清理）
+                documents_to_delete = []
+
                 # 软删除文档及其所有子文档
                 def soft_delete_recursive(doc):
+                    documents_to_delete.append(doc)
                     doc.is_active = False
                     doc.save()
                     for child in doc.children.filter(is_active=True):
                         soft_delete_recursive(child)
-                
+
                 soft_delete_recursive(document)
-            
+
+                # 异步删除向量数据库内容和清理图片
+                asyncio.run(self._cleanup_documents_resources(documents_to_delete))
+
             info_logger(f"用户 {request.user.username} 删除文档: {document.title}")
             return Response(status=status.HTTP_204_NO_CONTENT)
         except PermissionDenied:
@@ -314,6 +323,73 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    async def _cleanup_documents_resources(self, documents):
+        """清理文档相关资源（向量数据库和图片）"""
+        try:
+            from core.indexing.index import delete as delete_from_vector_db
+
+            for doc in documents:
+                if doc.is_document and doc.markdown_content:
+                    # 删除向量数据库内容
+                    try:
+                        await delete_from_vector_db(
+                            document_id=str(doc.id),
+                            tenant=str(doc.creator.id),
+                            namespace=str(doc.namespace.id),
+                        )
+                        info_logger(f"已从向量数据库删除文档: {doc.id}")
+                    except Exception as e:
+                        error_logger(f"删除向量数据库内容失败: {str(e)}")
+
+                # 清理文档相关图片
+                if doc.content:
+                    await self._cleanup_document_images(doc)
+
+        except Exception as e:
+            error_logger(f"清理文档资源失败: {str(e)}")
+
+    async def _cleanup_document_images(self, document):
+        """清理文档相关图片"""
+        try:
+            # 提取文档中的图片URL
+            image_urls = self._extract_image_urls(document.content)
+
+            for image_url in image_urls:
+                # 直接删除图片（文档删除时不再需要引用计数）
+                await self._delete_cos_image(image_url)
+                info_logger(f"已删除文档图片: {image_url}")
+
+        except Exception as e:
+            error_logger(f"清理文档图片失败: {str(e)}")
+
+    def _extract_image_urls(self, html_content):
+        """从HTML内容中提取图片URL"""
+        if not html_content:
+            return []
+
+        import re
+        # 匹配img标签中的src属性，只匹配COS存储的图片
+        pattern = r'<img[^>]*src="([^"]*knowledge/[^"]*)"[^>]*>'
+        matches = re.findall(pattern, html_content)
+        return matches
+
+    async def _delete_cos_image(self, image_url):
+        """删除COS中的图片"""
+        try:
+            # 从URL中提取文件路径
+            if 'knowledge/' in image_url:
+                # 提取路径部分
+                path_start = image_url.find('knowledge/')
+                file_path = image_url[path_start:]
+
+                # 删除COS文件
+                if default_storage.exists(file_path):
+                    default_storage.delete(file_path)
+                    info_logger(f"已删除COS图片: {file_path}")
+
+        except Exception as e:
+            error_logger(f"删除COS图片失败: {str(e)}")
+
     @swagger_auto_schema(
         operation_summary="获取文档树",
         operation_description="获取知识库的文档树形结构",
@@ -324,14 +400,14 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
         """获取文档树"""
         try:
             namespace = self.get_namespace()
-            
+
             # 获取根级文档
             root_documents = KnowledgeDocument.objects.filter(
                 namespace=namespace,
                 parent__isnull=True,
                 is_active=True
             ).order_by('sort_order', 'title')
-            
+
             serializer = self.get_serializer(root_documents, many=True)
             return Response(serializer.data)
         except Exception as e:
@@ -358,22 +434,22 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
                 namespace=namespace,
                 is_active=True
             )
-            
+
             # 检查编辑权限
             if not document.can_edit(request.user):
                 raise PermissionDenied("您没有移动此文档的权限")
-            
+
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            
+
             # 执行移动
             target_parent = serializer.validated_data.get('target_parent_id')
             sort_order = serializer.validated_data.get('sort_order', 0)
-            
+
             document.parent = target_parent
             document.sort_order = sort_order
             document.save()
-            
+
             info_logger(f"用户 {request.user.username} 移动文档: {document.title}")
             return Response({"message": "移动成功"})
         except PermissionDenied:
@@ -560,4 +636,74 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
             return Response(
                 {"error": "获取表单数据失败"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            ) 
+            )
+
+    @swagger_auto_schema(
+        operation_summary="上传图片",
+        operation_description="为CKEditor上传图片到COS存储",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['upload'],
+            properties={
+                'upload': openapi.Schema(
+                    type=openapi.TYPE_FILE,
+                    description='要上传的图片文件'
+                )
+            }
+        ),
+        responses={
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'url': openapi.Schema(type=openapi.TYPE_STRING, description='图片URL')
+                }
+            )
+        }
+    )
+    @action(detail=False, methods=['post'])
+    def upload_image(self, request, namespace_pk=None):
+        """上传图片"""
+        try:
+            namespace = self.get_namespace()
+
+            if 'upload' not in request.FILES:
+                return Response(
+                    {"error": "没有上传文件"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            uploaded_file = request.FILES['upload']
+
+            # 验证文件类型
+            allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+            if uploaded_file.content_type not in allowed_types:
+                return Response(
+                    {"error": "不支持的图片格式"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # 验证文件大小（5MB）
+            if uploaded_file.size > 5 * 1024 * 1024:
+                return Response(
+                    {"error": "文件大小不能超过5MB"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # 生成文件名
+            file_extension = uploaded_file.name.split('.')[-1]
+            file_name = f"{uuid.uuid4().hex}.{file_extension}"
+            file_path = f"knowledge/{namespace_pk}/images/{file_name}"
+
+            # 保存文件到COS
+            file_url = default_storage.save(file_path, uploaded_file)
+            full_url = default_storage.url(file_url)
+
+            info_logger(f"用户 {request.user.username} 上传图片: {file_path}")
+            return Response({"url": full_url})
+
+        except Exception as e:
+            error_logger(f"上传图片失败: {str(e)}")
+            return Response(
+                {"error": "上传图片失败"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

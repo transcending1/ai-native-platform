@@ -39,107 +39,49 @@
       </div>
     </div>
 
-    <!-- 导航菜单 -->
-    <nav class="mt-4 overflow-y-auto h-full pb-20">
-      <div class="px-4">
+    <!-- 导航菜单 - 使用Element Plus Menu组件 -->
+    <div class="mt-4 overflow-y-auto h-full pb-20">
+      <el-menu
+        :default-active="activeMenu"
+        class="el-menu-vertical"
+        :collapse="isCollapsed"
+        :collapse-transition="false"
+        @open="handleOpen"
+        @close="handleClose"
+        @select="handleSelect"
+        background-color="#ffffff"
+        text-color="#374151"
+        active-text-color="#3b82f6"
+      >
         <!-- 首页 -->
-        <router-link 
-          to="/"
-          class="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 mb-1"
-          :class="{'bg-blue-50 text-blue-600': $route.path === '/', 'justify-center': isCollapsed}"
-          :title="isCollapsed ? '首页' : ''"
-        >
-          <span :class="isCollapsed ? 'mr-0' : 'mr-3'">🏠</span>
-          <span v-if="!isCollapsed">首页</span>
-        </router-link>
+        <el-menu-item index="/">
+          <el-icon><House /></el-icon>
+          <template #title>首页</template>
+        </el-menu-item>
 
         <!-- 系统管理 - 仅管理员可见 -->
-        <div v-if="isAdmin" class="mb-2 relative">
-          <div 
-            @click.stop="toggleSystemMenu()"
-            class="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 cursor-pointer"
-            :class="{'justify-center': isCollapsed, 'justify-between': !isCollapsed}"
-            :title="isCollapsed ? '系统管理' : ''"
-          >
-            <div class="flex items-center">
-              <span :class="isCollapsed ? 'mr-0' : 'mr-3'">⚙️</span>
-              <span v-if="!isCollapsed">系统管理</span>
-            </div>
-            <span v-if="!isCollapsed" class="text-gray-400" :class="{'transform rotate-180': systemMenuOpen}">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-              </svg>
-            </span>
-          </div>
-          
-          <!-- 展开状态下的子菜单 -->
-          <div v-show="systemMenuOpen && !isCollapsed" class="ml-6 mt-1 space-y-1">
-            <router-link 
-              to="/user-management"
-              class="flex items-center px-3 py-2 text-sm text-gray-600 rounded-md hover:bg-blue-50 hover:text-blue-600"
-              :class="{'bg-blue-50 text-blue-600': $route.path === '/user-management'}"
-            >
-              <span class="mr-3">👤</span>
-              用户管理
-            </router-link>
-            
-            <router-link 
-              to="/provider-management"
-              class="flex items-center px-3 py-2 text-sm text-gray-600 rounded-md hover:bg-blue-50 hover:text-blue-600"
-              :class="{'bg-blue-50 text-blue-600': $route.path === '/provider-management'}"
-            >
-              <span class="mr-3">🔧</span>
-              Provider管理
-            </router-link>
-            
-          </div>
-
-          <!-- 折叠状态下的浮动子菜单 -->
-          <div 
-            v-show="systemMenuOpen && isCollapsed" 
-            class="absolute left-16 top-0 bg-white shadow-xl border border-gray-200 rounded-md py-2 min-w-48"
-            style="z-index: 9999;"
-            @click.stop
-          >
-            <router-link 
-              to="/user-management"
-              class="flex items-center px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600"
-              :class="{'bg-blue-50 text-blue-600': $route.path === '/user-management'}"
-            >
-              <span class="mr-3">👤</span>
-              用户管理
-            </router-link>
-            
-            <router-link 
-              to="/provider-management"
-              class="flex items-center px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600"
-              :class="{'bg-blue-50 text-blue-600': $route.path === '/provider-management'}"
-            >
-              <span class="mr-3">🔧</span>
-              Provider管理
-            </router-link>
-            
-            <div class="flex items-center px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 cursor-pointer">
-              <span class="mr-3">👥</span>
-              部门管理
-            </div>
-            
-          </div>
-        </div>
+        <el-sub-menu v-if="isAdmin" index="system">
+          <template #title>
+            <el-icon><Setting /></el-icon>
+            <span>系统管理</span>
+          </template>
+          <el-menu-item index="/user-management">
+            <el-icon><User /></el-icon>
+            <template #title>用户管理</template>
+          </el-menu-item>
+          <el-menu-item index="/provider-management">
+            <el-icon><Tools /></el-icon>
+            <template #title>Provider管理</template>
+          </el-menu-item>
+        </el-sub-menu>
 
         <!-- 知识管理 -->
-        <router-link 
-          to="/knowledge-namespace"
-          class="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 mb-1"
-          :class="{'bg-blue-50 text-blue-600': $route.path.startsWith('/knowledge'), 'justify-center': isCollapsed}"
-          :title="isCollapsed ? '知识管理' : ''"
-        >
-          <span :class="isCollapsed ? 'mr-0' : 'mr-3'">📚</span>
-          <span v-if="!isCollapsed">知识管理</span>
-        </router-link>
-
-      </div>
-    </nav>
+        <el-menu-item index="/knowledge-namespace">
+          <el-icon><Document /></el-icon>
+          <template #title>知识管理</template>
+        </el-menu-item>
+      </el-menu>
+    </div>
 
     <!-- 底部折叠按钮 -->
     <div class="absolute bottom-4 left-4">
@@ -164,17 +106,22 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user.js'
 import appConfig from '@/config/app.js'
+import { House, Setting, User, Tools, Document } from '@element-plus/icons-vue'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
-const systemMenuOpen = ref(true) // 默认展开系统管理
-const permissionMenuOpen = ref(false)
 
 // 折叠状态
 const isCollapsed = ref(appConfig.sidebar.collapsed)
+
+// 当前激活的菜单项
+const activeMenu = computed(() => {
+  return route.path
+})
 
 // 当前用户名
 const currentUserName = computed(() => {
@@ -202,51 +149,31 @@ const isAdmin = computed(() => {
   return userStore.userInfo && (userStore.userInfo.role === 'admin' || userStore.userInfo.role === 'administrator')
 })
 
-const toggleSystemMenu = () => {
-  systemMenuOpen.value = !systemMenuOpen.value
-  // 在折叠状态下，如果打开了系统菜单，则关闭其他菜单
-  if (isCollapsed.value && systemMenuOpen.value) {
-    permissionMenuOpen.value = false
+// Element Plus Menu 事件处理
+const handleOpen = (key, keyPath) => {
+  console.log('菜单展开:', key, keyPath)
+}
+
+const handleClose = (key, keyPath) => {
+  console.log('菜单关闭:', key, keyPath)
+}
+
+const handleSelect = (key, keyPath) => {
+  console.log('菜单选择:', key, keyPath)
+  // 路由跳转
+  if (key && key !== route.path) {
+    router.push(key)
   }
 }
 
-
 const toggleCollapse = () => {
   isCollapsed.value = !isCollapsed.value
-  // 当展开侧边栏时，恢复系统管理的默认展开状态
-  if (!isCollapsed.value) {
-    systemMenuOpen.value = true
-    permissionMenuOpen.value = false
-  }
 }
 
 // 跳转到用户信息页面
 const goToUserInfo = () => {
   router.push('/user-info')
 }
-
-// 点击外部区域关闭浮动菜单
-const handleClickOutside = (event) => {
-  // 如果不是折叠状态，不需要处理
-  if (!isCollapsed.value) return
-  
-  // 检查点击是否在侧边栏内或浮动菜单内
-  const sidebar = event.target.closest('.sidebar')
-  const floatingMenu = event.target.closest('[style*="z-index: 9999"]')
-  
-  if (!sidebar && !floatingMenu) {
-    systemMenuOpen.value = false
-    permissionMenuOpen.value = false
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-})
 
 // 暴露折叠状态，供其他组件使用
 defineExpose({
@@ -257,5 +184,91 @@ defineExpose({
 <style scoped>
 .sidebar {
   transition: all 0.3s ease;
+}
+
+/* Element Plus Menu 样式定制 */
+.el-menu-vertical {
+  border-right: none;
+}
+
+.el-menu-vertical:not(.el-menu--collapse) {
+  width: 100%;
+}
+
+.el-menu--collapse {
+  width: 100%;
+}
+
+/* 菜单项样式定制 */
+:deep(.el-menu-item) {
+  height: 48px;
+  line-height: 48px;
+  margin: 0 8px;
+  border-radius: 6px;
+}
+
+:deep(.el-menu-item:hover) {
+  background-color: #f3f4f6 !important;
+}
+
+:deep(.el-menu-item.is-active) {
+  background-color: #eff6ff !important;
+  color: #3b82f6 !important;
+}
+
+/* 子菜单样式定制 */
+:deep(.el-sub-menu__title) {
+  height: 48px;
+  line-height: 48px;
+  margin: 0 8px;
+  border-radius: 6px;
+}
+
+:deep(.el-sub-menu__title:hover) {
+  background-color: #f3f4f6 !important;
+}
+
+/* 子菜单项样式 */
+:deep(.el-menu--inline .el-menu-item) {
+  height: 40px;
+  line-height: 40px;
+  margin: 0 8px 0 16px;
+  border-radius: 6px;
+}
+
+/* 图标样式 */
+:deep(.el-menu-item .el-icon),
+:deep(.el-sub-menu__title .el-icon) {
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+/* 折叠状态下的图标居中 */
+:deep(.el-menu--collapse .el-menu-item .el-icon),
+:deep(.el-menu--collapse .el-sub-menu__title .el-icon) {
+  margin-right: 0;
+  margin-left: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 16px !important;
+  width: auto;
+  min-width: 16px;
+}
+
+/* 折叠状态下的菜单项内容居中 */
+:deep(.el-menu--collapse .el-menu-item),
+:deep(.el-menu--collapse .el-sub-menu__title) {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 12px !important;
+  min-height: 48px;
+}
+
+/* 折叠状态下的菜单项文字隐藏 */
+:deep(.el-menu--collapse .el-menu-item span),
+:deep(.el-menu--collapse .el-sub-menu__title span) {
+  display: none;
 }
 </style> 
