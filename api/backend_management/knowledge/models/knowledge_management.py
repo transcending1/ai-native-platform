@@ -1,6 +1,5 @@
 from django.conf import settings
 from django.db import models
-import json
 
 
 def knowledge_file_upload_path(instance, filename):

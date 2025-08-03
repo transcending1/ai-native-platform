@@ -1,2 +1,0 @@
-[33mWARNING [0m django.request:log.py:253 Not Found: /api/user/auth/login/
-[32mINFO    [0m info:knowledge_management.py:215 用户 testuser 在知识库 4 创建文档: 电瓶车管理工具

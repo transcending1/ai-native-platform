@@ -1,2 +1,0 @@
-2025-07-30 02:57:07 error  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/knowledge_management.py:221 knowledge_management:create ERROR- 创建文档验证失败: {'form_data': {'fields': [ErrorDetail(string='字段名不能重复', code='invalid')]}}
-2025-07-30 02:57:07 error  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/knowledge_management.py:221 knowledge_management:create ERROR- 创建文档验证失败: {'form_data': {'fields': [ErrorDetail(string='字段名不能重复', code='invalid')]}}

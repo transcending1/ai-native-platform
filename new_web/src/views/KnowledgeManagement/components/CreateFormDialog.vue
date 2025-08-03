@@ -13,7 +13,7 @@
       label-width="100px"
       @submit.prevent="handleSubmit"
     >
-      <el-form-item label="表单标题" prop="title">
+      <el-form-item label="标题" prop="title">
         <el-input
           v-model="form.title"
           placeholder="请输入表单标题"
@@ -23,7 +23,7 @@
         />
       </el-form-item>
       
-      <el-form-item label="表单名称" prop="form_data.table_name">
+      <el-form-item label="名称" prop="form_data.table_name">
         <el-input
           v-model="form.form_data.table_name"
           placeholder="请输入表单名称（英文、数字、下划线）"
@@ -34,7 +34,7 @@
         </div>
       </el-form-item>
       
-      <el-form-item label="表单描述" prop="form_data.table_description">
+      <el-form-item label="描述" prop="form_data.table_description">
         <el-input
           v-model="form.form_data.table_description"
           type="textarea"

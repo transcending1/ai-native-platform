@@ -1,1 +1,0 @@
-INFO     info:user.py:163 新用户 newuser 注册成功

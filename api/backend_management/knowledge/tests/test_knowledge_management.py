@@ -877,5 +877,106 @@ class KnowledgeCommentTestCase(KnowledgeManagementBaseTest):
         self.assertEqual(len(comment2_data['replies']), 0)
 
 
+@pytest.mark.django_db
+class SimpleDocumentUpdateTestCase(APITestCase):
+    """
+    简单的文档更新测试用例
+    """
+    
+    def setUp(self):
+        """测试数据准备"""
+        # 创建测试用户
+        self.user = User.objects.create_user(
+            username='testuser',
+            email='testuser@example.com',
+            password='testpass123'
+        )
+        
+        # 创建测试知识库
+        self.namespace = Namespace.objects.create(
+            name='测试知识库',
+            description='用于测试的知识库',
+            creator=self.user,
+            access_type='collaborators'
+        )
+        
+        # 创建测试文档
+        self.document = KnowledgeDocument.objects.create(
+            title='原始标题',
+            content='原始内容',
+            summary='原始摘要',
+            doc_type='document',
+            namespace=self.namespace,
+            creator=self.user,
+            last_editor=self.user
+        )
+        
+        # API客户端
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+    
+    def test_update_document_content_only(self):
+        """测试只更新文档内容"""
+        url = reverse('namespace-documents-detail', kwargs={
+            'namespace_pk': self.namespace.id,
+            'pk': self.document.id
+        })
+        
+        data = {
+            'title': self.document.title,  # 保持原有标题
+            'content': '更新后的内容',
+            'summary': '更新后的摘要'
+        }
+        
+        response = self.client.put(url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['content'], '更新后的内容')
+        self.assertEqual(response.data['summary'], '更新后的摘要')
+        
+        # 验证数据库中的更新
+        self.document.refresh_from_db()
+        self.assertEqual(self.document.content, '更新后的内容')
+        self.assertEqual(self.document.summary, '更新后的摘要')
+        self.assertEqual(self.document.last_editor, self.user)
+    
+    def test_update_document_frontend_style(self):
+        """测试前端风格的更新请求（只包含content和summary）"""
+        url = reverse('namespace-documents-detail', kwargs={
+            'namespace_pk': self.namespace.id,
+            'pk': self.document.id
+        })
+        
+        # 模拟前端发送的数据（只包含content和summary）
+        data = {
+            'content': '前端更新的内容',
+            'summary': '前端更新的摘要'
+        }
+        
+        response = self.client.put(url, data, format='json')
+        
+        # 应该返回400错误，因为缺少必需的title字段
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('title', response.data['details'])
+        
+        # 现在测试修复后的前端请求（包含title）
+        data_with_title = {
+            'title': self.document.title,  # 包含原有标题
+            'content': '前端更新的内容',
+            'summary': '前端更新的摘要'
+        }
+        
+        response = self.client.put(url, data_with_title, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['content'], '前端更新的内容')
+        self.assertEqual(response.data['summary'], '前端更新的摘要')
+        
+        # 验证数据库中的更新
+        self.document.refresh_from_db()
+        self.assertEqual(self.document.content, '前端更新的内容')
+        self.assertEqual(self.document.summary, '前端更新的摘要')
+
+
 if __name__ == '__main__':
     pytest.main([__file__]) 

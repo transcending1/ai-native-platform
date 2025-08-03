@@ -1,6 +1,0 @@
-Creating test database for alias 'default'...
-2025-07-27 09:41:39 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:183 namespace:add_collaborator INFO- 用户 user1 将 user2 添加为知识库 兼容性测试知识库 的协作者
-2025-07-27 09:41:39 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:183 namespace:add_collaborator INFO- 用户 user1 将 user2 添加为知识库 兼容性测试知识库 的协作者
-2025-07-27 09:41:40 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:253 namespace:manage_collaborator INFO- 用户 user1 更新了知识库 兼容性测试知识库 中协作者 user2 的权限
-2025-07-27 09:41:40 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:253 namespace:manage_collaborator INFO- 用户 user1 更新了知识库 兼容性测试知识库 中协作者 user2 的权限
-Destroying test database for alias 'default'...

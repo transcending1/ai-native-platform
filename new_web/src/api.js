@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const apiClient = axios.create({
     baseURL: import.meta.env.VITE_APP_BASE_API, // 从环境变量获取 API 地址
-    timeout: 5000, // 设置超时时间
+    timeout: 120000, // 设置超时时间为2分钟
 });
 
 // 可以添加请求拦截器和响应拦截器
@@ -327,6 +327,30 @@ export const knowledgeAPI = {
   getFormData: (namespaceId, documentId, params = {}) => {
     return apiClient.get(`/knowledge/namespaces/${namespaceId}/documents/${documentId}/form_data/`, { params })
   }
+}
+
+// Provider管理相关API
+export const providerAPI = {
+  // 全局配置缓存
+  getGlobalConfigCache: () => apiClient.get('/provider/global-config-cache/get_configs/'),
+  updateLLMConfig: (data) => apiClient.post('/provider/global-config-cache/update_llm_config/', data),
+  updateEmbeddingConfig: (data) => apiClient.post('/provider/global-config-cache/update_embedding_config/', data),
+  testLLMConfig: () => apiClient.post('/provider/global-config-cache/test_llm_config/'),
+  testEmbeddingConfig: () => apiClient.post('/provider/global-config-cache/test_embedding_config/'),
+  
+  // Embedding代码生成和测试
+  generateEmbeddingCode: (userDemand) => apiClient.post('/provider/global-config-cache/generate_embedding_code/', { user_demand: userDemand }, { timeout: 180000 }), // 3分钟超时
+  testGeneratedEmbedding: () => apiClient.post('/provider/global-config-cache/test_generated_embedding/'),
+  saveEditedEmbeddingCode: (code) => apiClient.post('/provider/global-config-cache/save_edited_embedding_code/', { code }),
+
+  // LLM模型
+  getLLMModels: (params) => apiClient.get('/provider/llm-models/', { params }),
+  getLLMModel: (id) => apiClient.get(`/provider/llm-models/${id}/`),
+  createLLMModel: (data) => apiClient.post('/provider/llm-models/', data),
+  updateLLMModel: (id, data) => apiClient.put(`/provider/llm-models/${id}/`, data),
+  deleteLLMModel: (id) => apiClient.delete(`/provider/llm-models/${id}/`),
+  testLLMModel: (id) => apiClient.post(`/provider/llm-models/${id}/test_model/`),
+  getLLMProviders: () => apiClient.get('/provider/llm-models/get_providers/'),
 }
 
 export default apiClient;

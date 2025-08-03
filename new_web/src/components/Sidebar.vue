@@ -83,10 +83,14 @@
               用户管理
             </router-link>
             
-            <div class="flex items-center px-3 py-2 text-sm text-gray-600 rounded-md hover:bg-blue-50 hover:text-blue-600">
-              <span class="mr-3">👥</span>
-              部门管理
-            </div>
+            <router-link 
+              to="/provider-management"
+              class="flex items-center px-3 py-2 text-sm text-gray-600 rounded-md hover:bg-blue-50 hover:text-blue-600"
+              :class="{'bg-blue-50 text-blue-600': $route.path === '/provider-management'}"
+            >
+              <span class="mr-3">🔧</span>
+              Provider管理
+            </router-link>
             
           </div>
 
@@ -104,6 +108,15 @@
             >
               <span class="mr-3">👤</span>
               用户管理
+            </router-link>
+            
+            <router-link 
+              to="/provider-management"
+              class="flex items-center px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600"
+              :class="{'bg-blue-50 text-blue-600': $route.path === '/provider-management'}"
+            >
+              <span class="mr-3">🔧</span>
+              Provider管理
             </router-link>
             
             <div class="flex items-center px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 cursor-pointer">

@@ -210,3 +210,5 @@ __marimo__/
 exp/rag/2.Embedding/settings.py
 exp/rag/3.向量数据库/settings.py
 /api/backend_management/llm_api/settings/dev_settings.py
+# ignore all folders named "reports"
+reports/

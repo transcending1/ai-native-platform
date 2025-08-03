@@ -1,1 +1,0 @@
-[32mINFO    [0m info:namespace.py:330 用户 user1 更新了知识库 更新后的名称 的基本信息

@@ -13,7 +13,7 @@
       label-width="100px"
       @submit.prevent="handleSubmit"
     >
-      <el-form-item label="工具标题" prop="title">
+      <el-form-item label="标题" prop="title">
         <el-input
           v-model="form.title"
           placeholder="请输入工具标题"
@@ -23,7 +23,7 @@
         />
       </el-form-item>
       
-      <el-form-item label="工具名称" prop="tool_data.name">
+      <el-form-item label="名称" prop="tool_data.name">
         <el-input
           v-model="form.tool_data.name"
           placeholder="请输入工具名称（用于AI识别）"
@@ -31,7 +31,7 @@
         />
       </el-form-item>
       
-      <el-form-item label="工具描述" prop="tool_data.description">
+      <el-form-item label="描述" prop="tool_data.description">
         <el-input
           v-model="form.tool_data.description"
           type="textarea"

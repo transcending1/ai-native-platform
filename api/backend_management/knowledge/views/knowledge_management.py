@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status, permissions, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, F
 from django.db import transaction
@@ -90,12 +90,16 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
             return KnowledgeDocumentMoveSerializer
         elif self.action in ['retrieve', 'update', 'partial_update']:
             # 根据实例的类型选择序列化器
-            instance = getattr(self, 'get_object', lambda: None)()
-            if instance:
-                if instance.is_tool:
-                    return KnowledgeDocumentToolSerializer
-                elif instance.is_form:
-                    return KnowledgeDocumentFormSerializer
+            try:
+                instance = self.get_object()
+                if instance:
+                    if instance.is_tool:
+                        return KnowledgeDocumentToolSerializer
+                    elif instance.is_form:
+                        return KnowledgeDocumentFormSerializer
+            except:
+                # 如果获取实例失败，使用默认序列化器
+                pass
             return KnowledgeDocumentDetailSerializer
         else:
             return KnowledgeDocumentDetailSerializer
@@ -256,6 +260,12 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
             return Response(serializer.data)
         except PermissionDenied:
             raise
+        except ValidationError as e:
+            error_logger(f"更新文档验证失败: {str(e)}")
+            return Response(
+                {"error": "数据验证失败", "details": e.detail},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
             error_logger(f"更新文档失败: {str(e)}")
             return Response(

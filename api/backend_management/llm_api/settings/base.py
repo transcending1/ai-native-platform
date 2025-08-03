@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'user',
     'storages',
     'knowledge',
+    'provider',
 ]
 
 MIDDLEWARE = [

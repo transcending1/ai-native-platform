@@ -1,2 +1,0 @@
-2025-07-26 08:44:55 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/user/views/user.py:482 user:upload_avatar INFO- 用户 testuser 上传头像成功，头像URL: https://test-bucket.cos.ap-beijing.myqcloud.com/avatars/1/test.jpg
-2025-07-26 08:44:55 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/user/views/user.py:482 user:upload_avatar INFO- 用户 testuser 上传头像成功，头像URL: https://test-bucket.cos.ap-beijing.myqcloud.com/avatars/1/test.jpg

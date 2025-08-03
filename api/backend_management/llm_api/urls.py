@@ -36,6 +36,7 @@ urlpatterns = [
                   # 业务模块
                   path('user/', include('user.urls'), name='user'),
                   path('knowledge/', include('knowledge.urls'), name='knowledge'),
+                  path('provider/', include('provider.urls'), name='provider'),
 
                   # static
                   path('static/', include('django.contrib.staticfiles.urls')),

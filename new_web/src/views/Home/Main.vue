@@ -1,206 +1,191 @@
 <!-- src/views/Home.vue -->
 <template>
-  <div class="home-page">
-    <!-- 顶部用户信息和登出 -->
-    <div class="bg-white p-4 rounded-lg shadow-sm mb-6">
-      <div class="flex justify-between items-center">
-        <h2 class="text-2xl font-bold text-gray-900">仪表板</h2>
-        <div class="flex items-center space-x-4">
-          <div class="text-sm text-gray-700">
-            欢迎回来，{{ userStore.userInfo?.username || '用户' }}
-          </div>
-          <el-button 
-            type="danger" 
-            size="small"
-            @click="handleLogout"
-            :loading="logoutLoading"
-          >
-            登出
-          </el-button>
-        </div>
+  <div class="home-container">
+    <div class="welcome-section">
+      <h1 class="text-3xl font-bold text-gray-900 mb-4">
+        欢迎使用 AI Native Platform
+      </h1>
+      <p class="text-gray-600 mb-8">
+        这是一个基于 Vue 3 + Element Plus 的现代化管理平台
+      </p>
+    </div>
+
+    <!-- 富文本编辑器测试区域 -->
+    <div class="editor-test-section">
+      <h2 class="text-2xl font-bold text-gray-900 mb-4">
+        富文本编辑器高度适配测试
+      </h2>
+      <p class="text-gray-600 mb-4">
+        测试编辑器在不同屏幕尺寸下的高度适配效果
+      </p>
+      
+      <div class="editor-container" style="height: 70vh; min-height: 500px;">
+        <RichTextEditor
+          v-model="testContent"
+          :disabled="false"
+          :show-stats="true"
+          placeholder="请在此测试富文本编辑器的内容输入..."
+          @change="handleContentChange"
+        />
+      </div>
+      
+      <div class="test-info mt-4 p-4 bg-blue-50 rounded-lg">
+        <h3 class="font-semibold text-blue-900 mb-2">测试说明：</h3>
+        <ul class="text-sm text-blue-800 space-y-1">
+          <li>• 尝试调整浏览器窗口大小，观察编辑器高度变化</li>
+          <li>• 在不同设备上测试响应式效果</li>
+          <li>• 验证编辑器是否充分利用可用空间</li>
+          <li>• 检查工具栏、内容区域、统计信息的布局</li>
+        </ul>
       </div>
     </div>
 
-    <!-- 主要内容区域 -->
-    <div class="bg-white overflow-hidden shadow rounded-lg">
-      <div class="px-4 py-5 sm:p-6">
-        <!-- 用户信息卡片 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <div class="bg-blue-50 rounded-lg p-6">
-            <div class="flex items-center">
-              <div class="flex-shrink-0">
-                <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                  <span class="text-white text-sm">👤</span>
-                </div>
-              </div>
-              <div class="ml-5 w-0 flex-1">
-                <dl>
-                  <dt class="text-sm font-medium text-gray-500 truncate">用户ID</dt>
-                  <dd class="text-lg font-medium text-gray-900">{{ userStore.userInfo?.id || '-' }}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-
-          <div class="bg-green-50 rounded-lg p-6">
-            <div class="flex items-center">
-              <div class="flex-shrink-0">
-                <div class="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                  <span class="text-white text-sm">📧</span>
-                </div>
-              </div>
-              <div class="ml-5 w-0 flex-1">
-                <dl>
-                  <dt class="text-sm font-medium text-gray-500 truncate">邮箱</dt>
-                  <dd class="text-lg font-medium text-gray-900">{{ userStore.userInfo?.email || '-' }}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-
-          <div class="bg-purple-50 rounded-lg p-6">
-            <div class="flex items-center">
-              <div class="flex-shrink-0">
-                <div class="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center">
-                  <span class="text-white text-sm">🔑</span>
-                </div>
-              </div>
-              <div class="ml-5 w-0 flex-1">
-                <dl>
-                  <dt class="text-sm font-medium text-gray-500 truncate">登录状态</dt>
-                  <dd class="text-lg font-medium text-gray-900">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      已登录
-                    </span>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Token过期测试区域 -->
-        <div class="mt-8 p-6 bg-yellow-50 rounded-lg border border-yellow-200">
-          <h3 class="text-lg font-medium text-yellow-800 mb-4">🔧 Token过期测试工具</h3>
-          <p class="text-sm text-yellow-700 mb-4">
-            这个功能用于测试JWT Token过期的处理机制。点击下面的按钮会模拟token过期的情况。
+    <div class="features-section mt-12">
+      <h2 class="text-2xl font-bold text-gray-900 mb-6">平台特性</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="feature-card">
+          <div class="feature-icon">🚀</div>
+          <h3 class="feature-title">高性能</h3>
+          <p class="feature-description">
+            基于 Vue 3 的 Composition API 和现代构建工具，提供卓越的性能表现
           </p>
-          <div class="flex space-x-4">
-            <el-button 
-              type="warning" 
-              size="small"
-              @click="simulateTokenExpiry"
-            >
-              模拟Token过期
-            </el-button>
-            <el-button 
-              type="info" 
-              size="small"
-              @click="testProtectedAPI"
-              :loading="apiTestLoading"
-            >
-              测试受保护API
-            </el-button>
-          </div>
         </div>
-
+        
+        <div class="feature-card">
+          <div class="feature-icon">🎨</div>
+          <h3 class="feature-title">现代化 UI</h3>
+          <p class="feature-description">
+            采用 Element Plus 组件库，提供美观且一致的用户界面
+          </p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">📱</div>
+          <h3 class="feature-title">响应式设计</h3>
+          <p class="feature-description">
+            完美适配各种设备尺寸，从手机到桌面都有良好的使用体验
+          </p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">🔧</div>
+          <h3 class="feature-title">易于扩展</h3>
+          <p class="feature-description">
+            模块化架构设计，便于功能扩展和维护
+          </p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">🛡️</div>
+          <h3 class="feature-title">安全可靠</h3>
+          <p class="feature-description">
+            内置安全机制，保护用户数据和系统安全
+          </p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3 class="feature-title">数据驱动</h3>
+          <p class="feature-description">
+            强大的数据管理和分析能力，支持复杂的业务需求
+          </p>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { useUserStore } from '@/stores/user'
-import { userAPI } from '@/api'
+import { ref } from 'vue'
+import RichTextEditor from '@/components/RichTextEditor.vue'
 
-const router = useRouter()
-const userStore = useUserStore()
+// 测试内容
+const testContent = ref('')
 
-const input = ref('')
-const logoutLoading = ref(false)
-const apiTestLoading = ref(false)
-
-const handleClick = () => {
-  input.value = '按钮已点击！'
+// 处理内容变化
+const handleContentChange = (content) => {
+  console.log('编辑器内容变化:', content)
 }
-
-const handleLogout = async () => {
-  try {
-    await ElMessageBox.confirm(
-      '确定要退出登录吗？',
-      '提示',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning',
-      }
-    )
-    
-    logoutLoading.value = true
-    
-    // 执行登出操作
-    userStore.logout()
-    
-    ElMessage.success('已成功登出')
-    
-    // 跳转到登录页
-    router.push('/login')
-    
-  } catch {
-    // 用户取消操作
-  } finally {
-    logoutLoading.value = false
-  }
-}
-
-// 模拟Token过期的测试功能
-const simulateTokenExpiry = () => {
-  ElMessageBox.confirm(
-    '这将清除当前的Token来模拟token过期，你将会被自动登出。确定继续吗？',
-    '模拟Token过期',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
-    }
-  ).then(() => {
-    // 手动清除token模拟过期
-    localStorage.removeItem('token')
-    ElMessage.info('Token已清除，现在尝试访问任何API都会触发过期处理')
-  }).catch(() => {
-    // 用户取消
-  })
-}
-
-// 测试受保护的API来验证401处理
-const testProtectedAPI = async () => {
-  apiTestLoading.value = true
-  
-  try {
-    const response = await userAPI.getProfile()
-    ElMessage.success('API调用成功，Token仍然有效')
-    console.log('用户信息:', response.data)
-  } catch (error) {
-    if (error.response?.status === 401) {
-      ElMessage.warning('检测到401错误，Token过期处理机制将自动触发')
-    } else {
-      ElMessage.error('API调用失败: ' + (error.message || '未知错误'))
-    }
-    console.error('API测试错误:', error)
-  } finally {
-    apiTestLoading.value = false
-  }
-}
-
-// 检查登录状态
-onMounted(() => {
-  if (!userStore.isLoggedIn) {
-    ElMessage.warning('请先登录')
-    router.push('/login')
-  }
-})
 </script>
+
+<style scoped>
+.home-container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.welcome-section {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.editor-test-section {
+  margin-bottom: 3rem;
+}
+
+.editor-container {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.test-info {
+  border: 1px solid #dbeafe;
+}
+
+.features-section {
+  margin-top: 3rem;
+}
+
+.feature-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.feature-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.feature-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 0.5rem;
+}
+
+.feature-description {
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .home-container {
+    padding: 1rem;
+  }
+  
+  .editor-container {
+    height: 60vh !important;
+    min-height: 400px !important;
+  }
+}
+
+@media (min-width: 1200px) {
+  .editor-container {
+    height: 80vh !important;
+    min-height: 600px !important;
+  }
+}
+</style>
 

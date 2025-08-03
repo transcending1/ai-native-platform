@@ -1,2 +1,0 @@
-2025-07-27 08:26:01 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:183 namespace:add_collaborator INFO- 用户 user1 将 user2 添加为知识库 协作测试知识库 的协作者
-2025-07-27 08:26:01 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:183 namespace:add_collaborator INFO- 用户 user1 将 user2 添加为知识库 协作测试知识库 的协作者

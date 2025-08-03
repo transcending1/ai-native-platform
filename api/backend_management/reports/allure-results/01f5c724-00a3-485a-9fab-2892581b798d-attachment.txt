@@ -1,2 +1,0 @@
-2025-07-26 02:35:23 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/user/views/user.py:169 user:register INFO- 新用户 newuser 注册成功
-2025-07-26 02:35:23 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/user/views/user.py:169 user:register INFO- 新用户 newuser 注册成功

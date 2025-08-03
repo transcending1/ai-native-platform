@@ -1,2 +1,0 @@
-Got an error creating the test database: database "test_askpatbot" already exists
-

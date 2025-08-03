@@ -1,1 +1,0 @@
-{"uuid": "93a36d8c-78d2-43f2-b922-1d32a0f3b604", "children": ["07ffd472-3744-4b56-986c-02fc18a7f9e5"], "befores": [{"name": "django_db_modify_db_settings_parallel_suffix", "status": "passed", "start": 1753609328277, "stop": 1753609328277}], "start": 1753609328277, "stop": 1753609376984}

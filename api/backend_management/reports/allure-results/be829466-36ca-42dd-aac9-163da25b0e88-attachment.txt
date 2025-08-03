@@ -1,2 +1,0 @@
-2025-07-27 08:27:25 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:225 namespace:remove_collaborator INFO- 用户 user1 从知识库 移除协作者测试 中移除了协作者 user2
-2025-07-27 08:27:25 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:225 namespace:remove_collaborator INFO- 用户 user1 从知识库 移除协作者测试 中移除了协作者 user2

@@ -1,2 +1,0 @@
-2025-07-30 02:38:11 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/knowledge_management.py:421 knowledge_management:execute_tool INFO- 用户 testuser 执行工具: 可执行工具
-2025-07-30 02:38:11 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/knowledge_management.py:421 knowledge_management:execute_tool INFO- 用户 testuser 执行工具: 可执行工具

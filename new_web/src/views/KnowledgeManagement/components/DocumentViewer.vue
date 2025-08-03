@@ -69,19 +69,17 @@
       <!-- 文档知识类型 -->
       <template v-if="document.doc_type === 'document' || !document.doc_type">
         <!-- 查看模式 -->
-        <div v-if="!isEditing" class="p-6">
-          <!-- 摘要 -->
-          <div v-if="document.summary" class="mb-6 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-500">
-            <h3 class="text-sm font-semibold text-blue-900 mb-1">摘要</h3>
-            <p class="text-blue-800">{{ document.summary }}</p>
-          </div>
+        <div v-if="!isEditing" class="h-full flex flex-col">
           
-          <!-- 有内容时显示 Markdown -->
-          <div 
-            v-if="document.content && document.content.trim()"
-            class="prose prose-lg max-w-none"
-            v-html="renderedContent"
-          ></div>
+          <!-- 有内容时使用富文本编辑器显示 -->
+          <div v-if="document.content && document.content.trim()" class="flex-1">
+            <RichTextEditor
+              v-model="document.content"
+              :disabled="true"
+              :show-stats="false"
+              placeholder=""
+            />
+          </div>
           
           <!-- 如果内容为空，显示提示 -->
           <div v-else class="text-center py-8 text-gray-500">
@@ -95,59 +93,16 @@
         
         <!-- 编辑模式 -->
         <div v-else class="h-full flex flex-col">
-          <!-- 编辑工具栏 -->
-          <div class="px-6 py-3 border-b border-gray-200 bg-gray-50">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center space-x-4">
-                <el-switch
-                  v-model="editForm.is_public"
-                  active-text="公开"
-                  inactive-text="私有"
-                  size="small"
-                />
-              </div>
-              
-              <div class="flex items-center space-x-2">
-                <el-button size="small" @click="showPreview = !showPreview">
-                  {{ showPreview ? '编辑' : '预览' }}
-                </el-button>
-              </div>
-            </div>
-          </div>
           
-          <!-- 摘要编辑 -->
-          <div class="px-6 py-3 border-b border-gray-200">
-            <el-input
-              v-model="editForm.summary"
-              placeholder="请输入文档摘要..."
-              type="textarea"
-              :rows="2"
-              maxlength="500"
-              show-word-limit
+          <!-- 富文本编辑器 -->
+          <div class="flex-1">
+            <RichTextEditor
+              v-model="editForm.content"
+              :disabled="false"
+              :show-stats="true"
+              placeholder="请输入文档内容，支持富文本格式..."
+              @change="handleContentChange"
             />
-          </div>
-          
-          <!-- 编辑器区域 -->
-          <div class="flex-1 flex">
-            <!-- Markdown编辑器 -->
-            <div class="flex-1 flex flex-col" v-show="!showPreview">
-              <div class="px-6 py-2 text-sm text-gray-600 border-b border-gray-100">
-                Markdown 编辑器
-              </div>
-              <textarea
-                v-model="editForm.content"
-                class="flex-1 p-6 border-0 resize-none outline-none font-mono text-sm leading-relaxed"
-                placeholder="请输入文档内容，支持 Markdown 格式..."
-              ></textarea>
-            </div>
-            
-            <!-- 预览区域 -->
-            <div class="flex-1 flex flex-col border-l border-gray-200" v-show="showPreview">
-              <div class="px-6 py-2 text-sm text-gray-600 border-b border-gray-100">
-                预览
-              </div>
-              <div class="flex-1 overflow-auto p-6 prose prose-lg max-w-none" v-html="previewContent"></div>
-            </div>
           </div>
         </div>
       </template>
@@ -198,10 +153,11 @@ import { ElMessage } from 'element-plus'
 import { 
   Edit, MoreFilled, Share, Download, Printer
 } from '@element-plus/icons-vue'
-import { marked } from 'marked'
+// 移除marked导入，因为不再需要Markdown处理
 import { knowledgeAPI } from '@/api.js'
 import ToolEditor from './ToolEditor.vue'
 import FormEditor from './FormEditor.vue'
+import RichTextEditor from '@/components/RichTextEditor.vue'
 
 const props = defineProps({
   namespaceId: {
@@ -222,7 +178,6 @@ const emit = defineEmits(['edit', 'save', 'cancel'])
 
 // 响应式数据
 const saving = ref(false)
-const showPreview = ref(false)
 
 // 组件引用
 const toolEditorRef = ref(null)
@@ -231,8 +186,7 @@ const formEditorRef = ref(null)
 // 编辑表单
 const editForm = ref({
   content: '',
-  summary: '',
-  is_public: true
+  summary: ''
 })
 
 // 获取文档类型标签
@@ -246,32 +200,14 @@ const getDocTypeLabel = (docType) => {
   return labels[docType] || '未知类型'
 }
 
-// 渲染的内容
-const renderedContent = computed(() => {
-  console.log('DocumentViewer 渲染内容:', {
-    document: props.document,
-    hasContent: !!props.document.content,
-    contentLength: props.document.content?.length || 0
-  }) // 调试日志
-  
-  if (!props.document.content || props.document.content.trim() === '') {
-    console.log('文档内容为空') // 调试日志
-    return '' // 返回空字符串，让模板中的空内容提示显示
-  }
-  
-  try {
-    return marked(props.document.content)
-  } catch (error) {
-    console.error('Markdown渲染失败:', error)
-    return `<pre>${props.document.content}</pre>`
-  }
-})
+// 移除renderedContent计算属性，因为现在直接使用RichTextEditor显示内容
 
-// 预览内容
-const previewContent = computed(() => {
-  if (!editForm.value.content) return ''
-  return marked(editForm.value.content)
-})
+// 移除previewContent计算属性，因为不再需要Markdown预览
+
+// 处理内容变化
+const handleContentChange = (content) => {
+  editForm.value.content = content
+}
 
 // 格式化日期
 const formatDate = (dateString) => {
@@ -282,10 +218,10 @@ const formatDate = (dateString) => {
 
 // 初始化编辑表单
 const initEditForm = () => {
+  // 直接使用文档内容，因为现在统一使用HTML格式
   editForm.value = {
     content: props.document.content || '',
-    summary: props.document.summary || '',
-    is_public: props.document.is_public ?? true
+    summary: props.document.summary || ''
   }
 }
 
@@ -314,10 +250,13 @@ const handleSave = async () => {
 const handleDocumentSave = async () => {
   saving.value = true
   try {
+    // 直接保存HTML内容，保持富文本格式
+    const content = editForm.value.content || ''
+    
     const updateData = {
-      content: editForm.value.content,
-      summary: editForm.value.summary,
-      is_public: editForm.value.is_public
+      title: props.document.title, // 保持原有标题
+      content: content, // 直接保存HTML内容
+      summary: editForm.value.summary
     }
     
     await knowledgeAPI.updateDocument(props.namespaceId, props.document.id, updateData)
@@ -399,93 +338,5 @@ watch(() => props.document, (newDocument) => {
 <style scoped>
 .document-viewer {
   background: #ffffff;
-}
-
-.prose {
-  color: #374151;
-  line-height: 1.75;
-}
-
-.prose h1,
-.prose h2,
-.prose h3,
-.prose h4,
-.prose h5,
-.prose h6 {
-  color: #111827;
-  font-weight: 600;
-  margin-top: 2rem;
-  margin-bottom: 1rem;
-}
-
-.prose h1 {
-  font-size: 2.25rem;
-  line-height: 2.5rem;
-}
-
-.prose h2 {
-  font-size: 1.875rem;
-  line-height: 2.25rem;
-}
-
-.prose h3 {
-  font-size: 1.5rem;
-  line-height: 2rem;
-}
-
-.prose p {
-  margin-bottom: 1.25rem;
-}
-
-.prose ul,
-.prose ol {
-  margin-bottom: 1.25rem;
-  padding-left: 1.625rem;
-}
-
-.prose li {
-  margin-bottom: 0.5rem;
-}
-
-.prose code {
-  background-color: #f3f4f6;
-  padding: 0.125rem 0.25rem;
-  border-radius: 0.25rem;
-  font-size: 0.875rem;
-}
-
-.prose pre {
-  background-color: #1f2937;
-  color: #f9fafb;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  overflow-x: auto;
-  margin-bottom: 1.25rem;
-}
-
-.prose blockquote {
-  border-left: 4px solid #d1d5db;
-  padding-left: 1rem;
-  margin: 1.5rem 0;
-  font-style: italic;
-  color: #6b7280;
-}
-
-.prose table {
-  width: 100%;
-  margin-bottom: 1.25rem;
-  border-collapse: collapse;
-}
-
-.prose th,
-.prose td {
-  border: 1px solid #d1d5db;
-  padding: 0.5rem 0.75rem;
-  text-align: left;
-}
-
-.prose th {
-  background-color: #f9fafb;
-  font-weight: 600;
 }
 </style> 

@@ -9,10 +9,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ckeditor/ckeditor5-vue": "^7.3.0",
     "axios": "^1.7.9",
+    "buffer": "^6.0.3",
+    "ckeditor5": "^46.0.0",
+    "docx": "^9.5.1",
     "element-plus": "^2.9.0",
+    "file-saver": "^2.0.5",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.1",
+    "mammoth": "^1.9.1",
     "marked": "^16.1.1",
+    "pdfjs-dist": "^5.4.54",
     "pinia": "^2.3.0",
+    "prismjs": "^1.30.0",
+    "process": "^0.11.10",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0"
   },

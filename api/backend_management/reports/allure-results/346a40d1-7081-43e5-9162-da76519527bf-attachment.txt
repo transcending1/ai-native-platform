@@ -1,4 +1,0 @@
-2025-07-26 02:33:36 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/user/views/user.py:50 user:login INFO- 用户 testuser 登录成功，IP: 127.0.0.1
-2025-07-26 02:33:36 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/user/views/user.py:50 user:login INFO- 用户 testuser 登录成功，IP: 127.0.0.1
-2025-07-26 02:33:36 error  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/user/views/user.py:95 user:logout ERROR- 登出过程中发生错误: 'RefreshToken' object has no attribute 'blacklist'
-2025-07-26 02:33:36 error  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/user/views/user.py:95 user:logout ERROR- 登出过程中发生错误: 'RefreshToken' object has no attribute 'blacklist'

@@ -9,17 +9,18 @@ from ai_native_core.model import last_model
 
 @pytest.mark.asyncio
 async def test_default_model():
-    async for chunk in last_model.astream(
+    res =  last_model.invoke(
             "你是谁？",
             config={
                 "configurable": {
                     "last_temperature": 0,
                     "last_max_tokens": 512,
-                    "last_api_key": os.getenv('CHAT_MODEL_DEFAULT_API_KEY')
+                    "last_api_key": os.getenv('CHAT_MODEL_DEFAULT_API_KEY'),
                 }
-            },
-    ):
-        print(chunk.content, end='')
+            }
+    )
+    # res.content是第一个字符串
+    print(res.content)
 
 
 @pytest.mark.asyncio

@@ -13,7 +13,7 @@
       label-width="80px"
       @submit.prevent="handleSubmit"
     >
-      <el-form-item label="文件夹名称" prop="title">
+      <el-form-item label="名称" prop="title">
         <el-input
           v-model="form.title"
           placeholder="请输入文件夹名称"

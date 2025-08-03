@@ -13,7 +13,7 @@
       label-width="80px"
       @submit.prevent="handleSubmit"
     >
-      <el-form-item label="文档标题" prop="title">
+      <el-form-item label="标题" prop="title">
         <el-input
           v-model="form.title"
           placeholder="请输入文档标题"

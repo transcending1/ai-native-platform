@@ -1,2 +1,0 @@
-WARNING  warning:user.py:60 用户 nonexistent 登录失败，错误: {'non_field_errors': [ErrorDetail(string='用户名或密码错误', code='invalid')]}
-WARNING  django.request:log.py:253 Bad Request: /user/users/login/

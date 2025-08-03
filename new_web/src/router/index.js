@@ -7,6 +7,7 @@ import UserManagement from "../views/UserManagement/Main.vue"
 import UserInfo from "../views/UserInfo/Main.vue"
 import KnowledgeNamespace from "../views/KnowledgeNamespace/Main.vue"
 import KnowledgeManagement from "../views/KnowledgeManagement/Main.vue"
+import ProviderManagement from "../views/ProviderManagement/Main.vue"
 
 const routes = [
   {
@@ -63,6 +64,18 @@ const routes = [
       breadcrumb: [
         { name: '知识管理', path: '/knowledge-namespace' },
         { name: '知识库管理', path: '/knowledge-management' }
+      ]
+    }
+  },
+  {
+    path: '/provider-management',
+    name: 'ProviderManagement',
+    component: ProviderManagement,
+    meta: { 
+      requiresAuth: true,
+      breadcrumb: [
+        { name: '系统管理', path: '#' },
+        { name: 'Provider管理', path: '/provider-management' }
       ]
     }
   }

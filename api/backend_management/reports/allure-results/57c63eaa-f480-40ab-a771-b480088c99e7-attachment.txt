@@ -1,6 +1,0 @@
-2025-07-27 09:48:03 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:183 namespace:add_collaborator INFO- 用户 user1 将 user2 添加为知识库 权限测试知识库 的协作者
-2025-07-27 09:48:03 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:183 namespace:add_collaborator INFO- 用户 user1 将 user2 添加为知识库 权限测试知识库 的协作者
-2025-07-27 09:48:04 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:183 namespace:add_collaborator INFO- 用户 user1 将 user3 添加为知识库 权限测试知识库 的协作者
-2025-07-27 09:48:04 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:183 namespace:add_collaborator INFO- 用户 user1 将 user3 添加为知识库 权限测试知识库 的协作者
-2025-07-27 09:48:04 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:327 namespace:update_basic INFO- 用户 user2 更新了知识库 管理员修改的名称 的基本信息
-2025-07-27 09:48:04 info  /Users/zongjunyi/PycharmProjects/ai-native-platform/api/backend_management/knowledge/views/namespace.py:327 namespace:update_basic INFO- 用户 user2 更新了知识库 管理员修改的名称 的基本信息
