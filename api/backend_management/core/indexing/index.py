@@ -1,14 +1,14 @@
 from itertools import islice
-from typing import Iterable, Iterator, TypeVar, Optional, Any
+from typing import Iterable, Iterator, TypeVar, Optional, Any, cast
 
 from langchain_core.documents import Document
-from langchain_core.indexing.api import _deduplicate_in_order, _hash_string_to_uuid, _adelete
+from langchain_core.indexing.api import _hash_string_to_uuid, _adelete
 from pydantic import model_validator
 
-from ai_native_core.indexing.de_duplication import de_duplicator
-from ai_native_core.indexing.splitter import split_docs, split_tools
-from ai_native_core.indexing.weaviate_client import weaviate_client
-from ai_native_core.utils.vector_store import get_vector_store
+from core.indexing.de_duplication import de_duplicator
+from core.indexing.splitter import split_docs, split_tools
+from core.extensions.ext_weaviate import weaviate_client
+from core.utils.vector_store import get_vector_store
 
 T = TypeVar("T")
 
@@ -21,6 +21,20 @@ def _batch(size: int, iterable: Iterable[T]) -> Iterator[list[T]]:
         if not chunk:
             return
         yield chunk
+
+
+def _deduplicate_in_order(
+        hashed_documents: Iterable[Document],
+) -> Iterator[Document]:
+    """Deduplicate a list of hashed documents while preserving order."""
+    seen: set[str] = set()
+
+    for hashed_doc in hashed_documents:
+        if hashed_doc.uid not in seen:
+            # At this stage, the id is guaranteed to be a string.
+            # Avoiding unnecessary run time checks.
+            seen.add(cast("str", hashed_doc.uid))
+            yield hashed_doc
 
 
 class _HashedDocument(Document):

@@ -37,7 +37,6 @@ async def test_create_update_delete_common_knowledge():
             )
 
     with allure.step("新增文章"):
-
         new_doc = Document(
             page_content=new_markdown_document,
             metadata={

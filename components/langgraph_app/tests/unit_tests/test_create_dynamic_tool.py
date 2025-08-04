@@ -6,6 +6,41 @@ from agent.utils import create_dynamic_tool
 from ai_native_core.model import knowledge_rerank_model
 
 
+# 这个方法会被写入元编程中。
+def main(
+        ip_address: str = "",
+        time: str = "一周",
+        state=None,
+        config=None,
+        run_manager=None,
+        **kwargs
+):
+    # 在此处进行各种工具包的导入
+    if not ip_address.startswith("192.168"):
+        # 如果不符合规范就主动抛出异常，告知机器人返回结果通知人类
+        raise ToolException(f"IP地址不合法,必须以192.168开头,当前ip地址为{ip_address}")
+    return {
+        "is_success": True,
+        "ip_address": ip_address,
+        "time": time,
+    }
+
+
+def main(
+        ip="",
+        days=7,
+        state=None,
+        config=None,
+        run_manager=None,
+        **kwargs
+):
+    if not ip.startswith('192.168'):
+        return {'status': '失败', 'message': 'IP地址不合法，必须以192.168开头'}
+    if days < 1:
+        return {'status': '失败', 'message': '申请时间必须大于等于1天'}
+    return {'status': '成功', 'message': f'机器申请成功，IP: {ip}, 申请时间: {days}天'}
+
+
 def test_dynamic_tool():
     # 定义工具元数据
     tool_metadata = {
@@ -15,17 +50,36 @@ def test_dynamic_tool():
             "type": "object",
             "properties": {
                 "ip_address": {"type": "string", "description": "IP地址"},
-                "time": {"type": "string", "description": "申请时长"}
+                "time": {"type": "string", "description": "申请时长", "default": "一周"}
             },
             "required": ["ip_address", "time"]
         },
-        "function_code": """
-if not ip_address.startswith("192.168"):
-    raise ToolException(f"IP地址不合法,必须以192.168开头,当前ip地址为{ip_address}")
-result = f"申请机器成功,ip地址为{ip_address},申请时长为{time}"
-print(state)
-print(config)
-    """
+        "output_schema": {
+            "type": "object",
+            "properties": {
+                "is_success": {"type": "boolean", "description": "申请是否成功"},
+                "ip_address": {"type": "string", "description": "申请的IP地址"},
+                "time": {"type": "string", "description": "申请的时长"}
+            }
+        },
+        "jinja2_template": "机器申请结果：{% if is_success %}成功{% else %}失败{% endif %}。IP地址：{{ ip_address }}，申请时长：{{ time }}。",
+        "function_code": """def main(
+        ip_address: str,
+        time: str = "一周",
+        state=None,
+        config=None,
+        run_manager=None
+):
+    # 在此处进行各种工具包的导入
+    if not ip_address.startswith("192.168"):
+        # 如果不符合规范就主动抛出异常，告知机器人返回结果通知人类
+        raise ToolException(f"IP地址不合法,必须以192.168开头,当前ip地址为{ip_address}")
+    return {
+        "is_success": True,
+        "ip_address": ip_address,
+        "time": time,
+    }"""
+
     }
 
     _config = {
@@ -48,7 +102,11 @@ print(config)
         name=tool_metadata["name"],
         description=tool_metadata["description"],
         input_schema=tool_metadata["input_schema"],
-        function_code=tool_metadata["function_code"]
+        function_code=tool_metadata["function_code"],
+        output_schema=tool_metadata["output_schema"],
+        jinja2_template=tool_metadata["jinja2_template"],
+        # 人类使用模式。
+        is_jinja2_template=False
     )
 
     # 使用示例
@@ -74,7 +132,7 @@ print(config)
 
     # 测试合法IP
     print(tool._run(ip_address="192.168.1.1", time="2h", state="xxx", config=_config))
-    # 输出: 申请机器成功,ip地址为192.168.1.1,申请时长为2h
+    # 输出: 机器申请结果：成功。IP地址：192.168.1.1，申请时长：2h。
 
     # 测试大模型调度Tool
     for chunk in knowledge_rerank_model.bind_tools([
@@ -93,3 +151,174 @@ print(config)
         config=_config
     ):
         pprint(chunk)
+
+
+def test_html_template():
+    """测试HTML模板渲染功能"""
+    # 定义带HTML模板的工具元数据
+    html_tool_metadata = {
+        "name": "服务器状态监控",
+        "description": "监控服务器状态并生成HTML报告",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "server_name": {"type": "string", "description": "服务器名称"},
+                "check_type": {"type": "string", "description": "检查类型", "default": "basic"}
+            },
+            "required": ["server_name"]
+        },
+        "output_schema": {
+            "type": "object",
+            "properties": {
+                "server_name": {"type": "string", "description": "服务器名称"},
+                "status": {"type": "string", "description": "服务器状态"},
+                "cpu_usage": {"type": "number", "description": "CPU使用率"},
+                "memory_usage": {"type": "number", "description": "内存使用率"},
+                "disk_usage": {"type": "number", "description": "磁盘使用率"},
+                "uptime": {"type": "string", "description": "运行时间"}
+            }
+        },
+        "jinja2_template": "服务器 {{ server_name }} 状态：{{ status }}，CPU使用率：{{ cpu_usage }}%，内存使用率：{{ memory_usage }}%",
+        "html_template": """
+        <div class="server-status-card" style="border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin: 8px; background: white;">
+            <h3 style="color: #333; margin-top: 0;">🖥️ {{ server_name }} 服务器状态</h3>
+            <div style="margin: 12px 0;">
+                <span class="status-badge" style="
+                    padding: 4px 12px; 
+                    border-radius: 20px; 
+                    font-weight: bold;
+                    {% if status == 'online' %}
+                        background: #e7f5e7; color: #2d8f2d;
+                    {% elif status == 'warning' %}
+                        background: #fff3cd; color: #856404;
+                    {% else %}
+                        background: #f8d7da; color: #721c24;
+                    {% endif %}
+                ">{{ status.upper() }}</span>
+            </div>
+            <div class="metrics" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0;">
+                <div class="metric">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 4px;">CPU使用率</div>
+                    <div class="progress-bar" style="background: #f0f0f0; border-radius: 4px; height: 8px; position: relative;">
+                        <div style="
+                            background: {% if cpu_usage > 80 %}#dc3545{% elif cpu_usage > 60 %}#ffc107{% else %}#28a745{% endif %}; 
+                            height: 100%; 
+                            border-radius: 4px; 
+                            width: {{ cpu_usage }}%;
+                        "></div>
+                    </div>
+                    <div style="font-size: 14px; font-weight: bold; margin-top: 4px;">{{ cpu_usage }}%</div>
+                </div>
+                <div class="metric">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 4px;">内存使用率</div>
+                    <div class="progress-bar" style="background: #f0f0f0; border-radius: 4px; height: 8px; position: relative;">
+                        <div style="
+                            background: {% if memory_usage > 80 %}#dc3545{% elif memory_usage > 60 %}#ffc107{% else %}#28a745{% endif %}; 
+                            height: 100%; 
+                            border-radius: 4px; 
+                            width: {{ memory_usage }}%;
+                        "></div>
+                    </div>
+                    <div style="font-size: 14px; font-weight: bold; margin-top: 4px;">{{ memory_usage }}%</div>
+                </div>
+            </div>
+            <div style="font-size: 12px; color: #666; margin-top: 12px;">
+                📈 磁盘使用率: {{ disk_usage }}% | ⏱️ 运行时间: {{ uptime }}
+            </div>
+        </div>
+        """,
+        "function_code": """def main(
+        server_name: str,
+        check_type: str = "basic",
+        state=None,
+        config=None,
+        run_manager=None
+):
+    import random
+    
+    # 模拟服务器监控数据
+    statuses = ["online", "warning", "offline"]
+    status = random.choice(statuses[:2])  # 避免offline状态以便展示
+    
+    return {
+        "server_name": server_name,
+        "status": status,
+        "cpu_usage": round(random.uniform(20, 95), 1),
+        "memory_usage": round(random.uniform(30, 85), 1), 
+        "disk_usage": round(random.uniform(40, 90), 1),
+        "uptime": f"{random.randint(1, 30)}天{random.randint(1, 23)}小时"
+    }"""
+    }
+
+    _config = {
+        "configurable": {
+            "sys_config": {
+                "tenant_id": "tenant1",
+                "user_id": "user1",
+            },
+            "chat_bot_config": {
+                "prompt": "你是系统监控助手",
+            },
+            "memory_config": {
+                "max_tokens": 256,
+            },
+        }
+    }
+
+    print("\n=== 测试HTML模板渲染 ===")
+
+    # 创建带HTML模板的工具
+    html_tool = create_dynamic_tool(
+        name=html_tool_metadata["name"],
+        description=html_tool_metadata["description"],
+        input_schema=html_tool_metadata["input_schema"],
+        function_code=html_tool_metadata["function_code"],
+        output_schema=html_tool_metadata["output_schema"],
+        jinja2_template=html_tool_metadata["jinja2_template"],
+        is_jinja2_template=False,  # 关闭Jinja2模板
+        html_template=html_tool_metadata["html_template"],
+        is_html_template=True  # 开启HTML模板
+    )
+
+    # 测试HTML渲染
+    html_result = html_tool._run(
+        server_name="Web-Server-01",
+        check_type="detailed",
+        state="xxx",
+        config=_config
+    )
+
+    print("HTML渲染结果类型:", html_result.get("type"))
+    print("原始数据:", html_result.get("raw_data"))
+    print("HTML内容预览 (前200字符):", html_result.get("content", "")[:200])
+    # save to temp.html
+    with open("temp.html", "w", encoding="utf-8") as f:
+        f.write(html_result.get("content", ""))
+
+    # 创建对比的Jinja2模板工具
+    print("\n=== 对比Jinja2模板渲染 ===")
+    jinja2_tool = create_dynamic_tool(
+        name=html_tool_metadata["name"],
+        description=html_tool_metadata["description"],
+        input_schema=html_tool_metadata["input_schema"],
+        function_code=html_tool_metadata["function_code"],
+        output_schema=html_tool_metadata["output_schema"],
+        jinja2_template=html_tool_metadata["jinja2_template"],
+        is_jinja2_template=True,  # 开启Jinja2模板
+        html_template=html_tool_metadata["html_template"],
+        is_html_template=False  # 关闭HTML模板
+    )
+
+    jinja2_result = jinja2_tool._run(
+        server_name="Web-Server-01",
+        check_type="detailed",
+        state="xxx",
+        config=_config
+    )
+
+    print("Jinja2渲染结果:", jinja2_result)
+
+
+if __name__ == "__main__":
+    test_dynamic_tool()
+    test_html_template()

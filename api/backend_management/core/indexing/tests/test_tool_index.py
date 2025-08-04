@@ -4,9 +4,9 @@ import allure
 import pytest
 from langchain_core.documents import Document
 
-from ai_native_core.indexing.de_duplication import de_duplicator
-from ai_native_core.indexing.index import index, update_meta_data, delete
-from ai_native_core.indexing.weaviate_client import weaviate_client
+from core.indexing.de_duplication import de_duplicator
+from core.indexing.index import index, update_meta_data, delete
+from core.extensions.ext_weaviate import weaviate_client
 
 
 @pytest.mark.asyncio
@@ -39,11 +39,34 @@ async def test_create_update_delete_dynamic_tool():
     namespace = "namespace1"
     owner = "owner1"
     tool_type = "dynamic"
+    output_schema = json.dumps({
+        "type": "object",
+        "properties": {
+            "is_success": {"type": "boolean", "description": "申请是否成功"},
+            "ip_address": {"type": "string", "description": "申请的IP地址"},
+            "time": {"type": "string", "description": "申请的时长"}
+        }
+    })
+    jinja2_template = "机器申请结果：{% if is_success %}成功{% else %}失败{% endif %}。IP地址：{{ ip_address }}，申请时长：{{ time }}。",
+    html_template = "<p>机器申请结果：{{ is_success }}</p><p>IP地址：{{ ip_address }}</p><p>申请时长：{{ time }}</p>",
     extra_params = json.dumps(
         {
-            "code": '''if not ip_address.startswith("192.168"):
-    raise ToolException(f"IP地址不合法,必须以192.168开头,当前ip地址为{ip_address}")
-result = f"申请机器成功,ip地址为{ip_address},申请时长为{time}"'''
+            "code": """def main(
+        ip_address: str,
+        time: str = "一周",
+        state=None,
+        config=None,
+        run_manager=None
+):
+    # 在此处进行各种工具包的导入
+    if not ip_address.startswith("192.168"):
+        # 如果不符合规范就主动抛出异常，告知机器人返回结果通知人类
+        raise ToolException(f"IP地址不合法,必须以192.168开头,当前ip地址为{ip_address}")
+    return {
+        "is_success": True,
+        "ip_address": ip_address,
+        "time": time,
+    }"""
         }
     )
 
@@ -75,6 +98,9 @@ result = f"申请机器成功,ip地址为{ip_address},申请时长为{time}"'''
                 "input_schema": input_schema,
                 "few_shots": few_shots,
                 "tool_type": tool_type,
+                "output_schema": output_schema,
+                "jinja2_template": jinja2_template,
+                "html_template": html_template,
                 "extra_params": extra_params
             }
         )
@@ -110,6 +136,9 @@ result = f"申请机器成功,ip地址为{ip_address},申请时长为{time}"'''
                 "input_schema": input_schema,
                 "few_shots": adjust_few_shots,
                 "tool_type": tool_type,
+                "output_schema": output_schema,
+                "jinja2_template": jinja2_template,
+                "html_template": html_template,
                 "extra_params": extra_params
             }
         )
