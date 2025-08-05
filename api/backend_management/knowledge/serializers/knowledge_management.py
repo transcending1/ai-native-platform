@@ -138,12 +138,12 @@ class KnowledgeDocumentDetailSerializer(serializers.ModelSerializer):
 
                 # 异步存储到向量数据库
                 if document.markdown_content and document.is_document:
+                    from ..utils.async_helper import AsyncHandler
                     try:
-                        import asyncio
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        loop.run_until_complete(self._store_to_vector_database(document))
-                        loop.close()
+                        AsyncHandler.safe_run(
+                            self._store_to_vector_database(document),
+                            "向量数据库存储异步处理失败"
+                        )
                     except Exception as e:
                         from llm_api.settings.base import error_logger
                         error_logger(f"向量数据库存储异步处理失败: {str(e)}")
@@ -329,12 +329,12 @@ class KnowledgeDocumentDetailSerializer(serializers.ModelSerializer):
 
         # 异步存储到向量数据库
         if document.markdown_content and document.is_document:
+            from ..utils.async_helper import AsyncHandler
             try:
-                import asyncio
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                loop.run_until_complete(self._store_to_vector_database(document))
-                loop.close()
+                AsyncHandler.safe_run(
+                    self._store_to_vector_database(document),
+                    "向量数据库存储异步处理失败"
+                )
             except Exception as e:
                 from llm_api.settings.base import error_logger
                 error_logger(f"向量数据库存储异步处理失败: {str(e)}")
@@ -444,6 +444,25 @@ class ToolDataSerializer(serializers.Serializer):
         },
         help_text="输入参数结构"
     )
+    output_schema = serializers.JSONField(
+        required=False,
+        default=lambda: {
+            'type': 'object',
+            'properties': {},
+            'required': []
+        },
+        help_text="输出参数结构"
+    )
+    output_schema_jinja2_template = serializers.CharField(
+        required=False,
+        default="",
+        help_text="Jinja2模板，用于将工具的输出参数渲染为人类可读的字符串"
+    )
+    html_template = serializers.CharField(
+        required=False,
+        default="",
+        help_text="HTML模板，用于在Web前端优雅展示工具结果"
+    )
     few_shots = serializers.ListField(
         child=serializers.CharField(),
         required=False,
@@ -485,6 +504,32 @@ class ToolDataSerializer(serializers.Serializer):
 
         if value['type'] != 'object':
             raise serializers.ValidationError("input_schema的type必须是'object'")
+
+        if not isinstance(value['properties'], dict):
+            raise serializers.ValidationError("properties必须是对象")
+
+        return value
+
+    def validate_output_schema(self, value):
+        """验证输出参数结构"""
+        # 如果没有提供值，使用默认值
+        if value is None:
+            value = {
+                'type': 'object',
+                'properties': {},
+                'required': []
+            }
+
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("output_schema必须是JSON对象")
+
+        required_keys = ['type', 'properties']
+        for key in required_keys:
+            if key not in value:
+                raise serializers.ValidationError(f"output_schema缺少必需字段: {key}")
+
+        if value['type'] != 'object':
+            raise serializers.ValidationError("output_schema的type必须是'object'")
 
         if not isinstance(value['properties'], dict):
             raise serializers.ValidationError("properties必须是对象")
@@ -640,6 +685,16 @@ class KnowledgeDocumentToolSerializer(KnowledgeDocumentDetailSerializer):
         if tool_data:
             instance.set_tool_data(tool_data)
             instance.save()
+            
+            # 添加工具到向量数据库
+            try:
+                from ..utils.async_helper import VectorDBAsyncWrapper
+                VectorDBAsyncWrapper.add_tool_to_vector_db(instance, tool_data, self.context['request'].user)
+                from llm_api.settings.base import info_logger
+                info_logger(f"工具 {instance.title} 已成功添加到向量数据库")
+            except Exception as e:
+                from llm_api.settings.base import error_logger
+                error_logger(f"添加工具到向量数据库失败: {str(e)}")
 
         return instance
 
@@ -656,6 +711,16 @@ class KnowledgeDocumentToolSerializer(KnowledgeDocumentDetailSerializer):
         if tool_data and instance.is_tool:
             instance.set_tool_data(tool_data)
             instance.save()
+            
+            # 更新向量数据库中的工具
+            try:
+                from ..utils.async_helper import VectorDBAsyncWrapper
+                VectorDBAsyncWrapper.update_tool_in_vector_db(instance, tool_data, self.context['request'].user)
+                from llm_api.settings.base import info_logger
+                info_logger(f"工具 {instance.title} 已成功更新到向量数据库")
+            except Exception as e:
+                from llm_api.settings.base import error_logger
+                error_logger(f"更新工具到向量数据库失败: {str(e)}")
 
         return instance
 

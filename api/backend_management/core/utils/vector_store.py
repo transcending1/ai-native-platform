@@ -2,8 +2,8 @@ from functools import lru_cache
 
 from langchain_weaviate import WeaviateVectorStore
 
-from ai_native_core.embedding import embedding
-from ai_native_core.indexing.weaviate_client import weaviate_client
+from core.extensions.ext_weaviate import weaviate_client
+from core.models.embedding import embedding
 
 
 @lru_cache(maxsize=1000)

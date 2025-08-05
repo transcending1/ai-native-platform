@@ -3,7 +3,6 @@ from typing import List
 from pydantic import BaseModel, Field
 
 from core.models.llm import llm
-from core.models.utils import from_examples_to_messages
 
 
 class PropertySchema(BaseModel):
@@ -13,10 +12,6 @@ class PropertySchema(BaseModel):
     )
     description: str = Field(
         ..., description="属性的描述,用于帮助用户理解该属性的含义",
-    )
-    default: object = Field(
-        ...,
-        description="属性的默认值,为type中对应类型的默认值，非必填字段,如string类型的默认值为''(空字符串),int类型的默认值为0,boolean类型的默认值为false, float类型的默认值为0.0",
     )
 
 
@@ -35,8 +30,8 @@ class InputOutputSchema(BaseModel):
 
 class ToolGeneration(BaseModel):
     """根据用户的问题生成工具函数,工具的输入输出schema,工具的名称，描述等信息"""
-    name: str = Field(
-        ..., description="工具名称",
+    tool_name: str = Field(
+        ..., description="工具名称，中文名称，用户帮助用户一眼看清工具干了啥。",
     )
     description: str = Field(
         ..., description="工具描述,用于帮助用户理解工具的功能",
@@ -64,7 +59,9 @@ class ToolGeneration(BaseModel):
         ...,
         description="工具函数的代码,用于执行工具的具体逻辑,如调用API等.且函数名必须为main，"
                     "传参必须与input_schema中的属性一致并且都是关键字参数，"
-                    "返回值必须是一个字典，且字典的键必须与output_schema中的属性一致"
+                    "返回值必须是一个字典，且字典的键必须与output_schema中的属性一致，"
+                    "state=None,config=None,run_manager=None,**kwargs 这几个参数必须在最后作为关键字参数。"
+                    "运行的时候会产生作用"
     )
 
 
@@ -72,7 +69,7 @@ tool_generator_examples_to_messages = [
     (
         "请帮我生成一个JMS申请机器的工具函数:IP地址不合法,必须以192.168开头,申请可以有时间以天为单位,默认一周（7d）.",
         ToolGeneration(
-            name='申请JMS机器',
+            tool_name='申请JMS机器',
             description='申请JMS机器的工具',
             input_schema=InputOutputSchema(
                 type='object',

@@ -1,6 +1,7 @@
-import asyncio
+import json
 import uuid
 
+from django.core.cache import cache
 from django.core.files.storage import default_storage
 from django.db import transaction
 from django.db.models import Q
@@ -12,6 +13,9 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
+from core.models.extractor.tool_generator import tool_generator_llm, tool_generator_examples_to_messages
+from core.models.utils import from_examples_to_messages
+from core.tool.dynamic_tool import create_dynamic_tool
 from llm_api.settings.base import info_logger, error_logger
 from ..models import (
     Namespace,
@@ -310,7 +314,11 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
                 soft_delete_recursive(document)
 
                 # 异步删除向量数据库内容和清理图片
-                asyncio.run(self._cleanup_documents_resources(documents_to_delete))
+                from ..utils.async_helper import AsyncHandler
+                AsyncHandler.safe_run(
+                    self._cleanup_documents_resources(documents_to_delete),
+                    "清理文档资源失败"
+                )
 
             info_logger(f"用户 {request.user.username} 删除文档: {document.title}")
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -329,17 +337,31 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
             from core.indexing.index import delete as delete_from_vector_db
 
             for doc in documents:
+                # 删除普通文档的向量数据库内容
                 if doc.is_document and doc.markdown_content:
-                    # 删除向量数据库内容
                     try:
                         await delete_from_vector_db(
                             document_id=str(doc.id),
                             tenant=str(doc.creator.id),
                             namespace=str(doc.namespace.id),
+                            knowledge_type="common"
                         )
-                        info_logger(f"已从向量数据库删除文档: {doc.id}")
+                        info_logger(f"已从向量数据库删除普通文档: {doc.id}")
                     except Exception as e:
-                        error_logger(f"删除向量数据库内容失败: {str(e)}")
+                        error_logger(f"删除普通文档向量数据库内容失败: {str(e)}")
+
+                # 删除工具文档的向量数据库内容
+                elif doc.is_tool:
+                    try:
+                        await delete_from_vector_db(
+                            document_id=str(doc.id),
+                            tenant=str(doc.creator.id),
+                            namespace=str(doc.namespace.id),
+                            knowledge_type="tool"
+                        )
+                        info_logger(f"已从向量数据库删除工具文档: {doc.id}")
+                    except Exception as e:
+                        error_logger(f"删除工具文档向量数据库内容失败: {str(e)}")
 
                 # 清理文档相关图片
                 if doc.content:
@@ -463,15 +485,29 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
 
     @swagger_auto_schema(
         operation_summary="执行工具",
-        operation_description="执行指定的工具知识",
+        operation_description="执行指定的工具知识，支持JSON、Jinja2模板、HTML模板三种返回格式",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                'input_data': openapi.Schema(type=openapi.TYPE_OBJECT, description='输入参数')
+                'input_data': openapi.Schema(type=openapi.TYPE_OBJECT, description='输入参数'),
+                'output_type': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    enum=['json', 'jinja2', 'html'],
+                    description='返回类型：json(原始数据)、jinja2(模板渲染文本)、html(HTML渲染)',
+                    default='json'
+                )
             },
             required=['input_data']
         ),
-        responses={200: ToolExecutionSerializer}
+        responses={200: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'type': openapi.Schema(type=openapi.TYPE_STRING, description='返回数据类型'),
+                'content': openapi.Schema(type=openapi.TYPE_STRING, description='返回内容'),
+                'raw_data': openapi.Schema(type=openapi.TYPE_OBJECT, description='原始数据'),
+                'execution_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='执行记录ID')
+            }
+        )}
     )
     @action(detail=True, methods=['post'])
     def execute_tool(self, request, namespace_pk=None, pk=None):
@@ -490,6 +526,17 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
             if not document.can_access(request.user):
                 raise PermissionDenied("您没有访问此工具的权限")
 
+            input_data = request.data.get('input_data', {})
+            output_type = request.data.get('output_type', 'json')
+
+            # 获取工具数据
+            tool_data = document.get_tool_data()
+            if not tool_data:
+                return Response(
+                    {"error": "工具配置数据不完整"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             # 创建执行记录
             serializer = ToolExecutionSerializer(
                 data=request.data,
@@ -501,11 +548,62 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
             serializer.is_valid(raise_exception=True)
             execution = serializer.save()
 
-            # TODO: 这里可以添加实际的工具执行逻辑
-            # 目前只是创建执行记录，实际执行逻辑需要根据具体需求实现
+            try:
+                # 创建动态工具并执行
+                is_jinja2 = output_type == 'jinja2'
+                is_html = output_type == 'html'
 
-            info_logger(f"用户 {request.user.username} 执行工具: {document.title}")
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+                tool = create_dynamic_tool(
+                    name=tool_data.get('name', ''),
+                    description=tool_data.get('description', ''),
+                    input_schema=tool_data.get('input_schema', {}),
+                    function_code=tool_data.get('extra_params', {}).get('code', ''),
+                    output_schema=tool_data.get('output_schema'),
+                    jinja2_template=tool_data.get('output_schema_jinja2_template', ''),
+                    is_jinja2_template=is_jinja2,
+                    html_template=tool_data.get('html_template', ''),
+                    is_html_template=is_html
+                )
+
+                # 执行工具
+                result = tool._run(**input_data)
+
+                # 根据返回类型格式化结果
+                if output_type == 'html' and isinstance(result, dict) and result.get('type') == 'html':
+                    response_data = {
+                        'type': 'html',
+                        'content': result.get('content', ''),
+                        'raw_data': result.get('raw_data', {}),
+                        'execution_id': execution.id
+                    }
+                elif output_type == 'jinja2' and isinstance(result, str):
+                    response_data = {
+                        'type': 'jinja2',
+                        'content': result,
+                        'raw_data': None,
+                        'execution_id': execution.id
+                    }
+                else:
+                    # JSON格式或其他格式
+                    response_data = {
+                        'type': 'json',
+                        'content': json.dumps(result, ensure_ascii=False) if not isinstance(result, str) else result,
+                        'raw_data': result if not isinstance(result, str) else None,
+                        'execution_id': execution.id
+                    }
+
+                info_logger(f"用户 {request.user.username} 执行工具: {document.title}, 输出类型: {output_type}")
+                return Response(response_data, status=status.HTTP_200_OK)
+
+            except Exception as exec_error:
+                error_logger(f"工具执行失败: {str(exec_error)}")
+                return Response(
+                    {
+                        "error": f"工具执行失败: {str(exec_error)}",
+                        "execution_id": execution.id
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         except PermissionDenied:
             raise
@@ -707,3 +805,182 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
                 {"error": "上传图片失败"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @swagger_auto_schema(
+        operation_summary="AI智能生成工具",
+        operation_description="根据用户描述通过AI智能生成工具知识。注意：AI生成过程可能需要1-3分钟，请耐心等待。",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'description': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='工具功能描述，用于AI生成工具（最多30000字符）',
+                    example='请帮我生成一个请假的工具，输入请假天数和开始日期即可'
+                ),
+                'title': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='工具标题（可选）',
+                    example='请假工具'
+                ),
+                'parent_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='父文档ID（可选）')
+            },
+            required=['description']
+        ),
+        responses={
+            201: KnowledgeDocumentToolSerializer,
+            408: openapi.Response(description="请求超时，AI生成时间过长"),
+            500: openapi.Response(description="AI生成失败，请稍后重试")
+        }
+    )
+    @action(detail=False, methods=['post'])
+    def generate_tool_by_ai(self, request, namespace_pk=None):
+        """AI智能生成工具"""
+        try:
+            namespace = self.get_namespace()
+            description = request.data.get('description', '').strip()
+
+            if not description:
+                return Response(
+                    {"error": "请提供工具功能描述"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # 验证描述长度
+            if len(description) > 30000:
+                return Response(
+                    {"error": "工具功能描述不能超过30000个字符"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # 从Redis获取LLM配置
+            try:
+                config_json = json.loads(cache.get('code_model'))
+                if not config_json:
+                    return Response(
+                        {"error": "AI服务配置未找到，请联系管理员"},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+            except (TypeError, json.JSONDecodeError):
+                return Response(
+                    {"error": "AI服务配置格式错误，请联系管理员"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+            # 调用AI生成工具
+            try:
+                info_logger(f"用户 {request.user.username} 开始AI生成工具，描述: {description}")
+
+                messages = from_examples_to_messages(
+                    user_question=description,
+                    examples=tool_generator_examples_to_messages
+                )
+
+                try:
+                    ai_result = tool_generator_llm.invoke(
+                        messages,
+                        config={
+                            "configurable": config_json
+                        }
+                    )
+                except TimeoutError:
+                    raise TimeoutError("AI生成超时，请稍后重试")
+
+                info_logger(f"AI生成工具成功，用户: {request.user.username}, 工具名: {ai_result.tool_name}")
+
+                # 构建工具数据
+                tool_data = {
+                    'name': ai_result.tool_name,
+                    'description': ai_result.description,
+                    'input_schema': ai_result.input_schema.dict(),
+                    'output_schema': ai_result.output_schema.dict(),
+                    'output_schema_jinja2_template': ai_result.output_schema_jinja2_template,
+                    'html_template': ai_result.html_template,
+                    'few_shots': ai_result.few_shots,
+                    'tool_type': 'dynamic',
+                    'extra_params': {
+                        'code': ai_result.function_code
+                    }
+                }
+
+                # 创建工具知识文档
+                document_data = {
+                    'title': request.data.get('title', ai_result.tool_name),
+                    'content': f"AI生成的工具：{ai_result.description}",
+                    'summary': ai_result.description,
+                    'doc_type': 'tool',
+                    'namespace': namespace.id,
+                    'creator': request.user.id,
+                    'last_editor': request.user.id,
+                    'tool_data': tool_data
+                }
+
+                # 设置父文档
+                parent_id = request.data.get('parent_id')
+                if parent_id:
+                    try:
+                        parent = KnowledgeDocument.objects.get(
+                            id=parent_id,
+                            namespace=namespace,
+                            is_active=True
+                        )
+                        document_data['parent'] = parent.id
+                    except KnowledgeDocument.DoesNotExist:
+                        return Response(
+                            {"error": "指定的父文档不存在"},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+
+                # 创建文档
+                serializer = KnowledgeDocumentToolSerializer(
+                    data=document_data,
+                    context=self.get_serializer_context()
+                )
+                serializer.is_valid(raise_exception=True)
+                document = serializer.save()
+
+                # 异步添加到向量数据库
+                from ..utils.async_helper import VectorDBAsyncWrapper
+                try:
+                    VectorDBAsyncWrapper.add_tool_to_vector_db(document, tool_data, request.user)
+                    info_logger(f"工具已添加到向量数据库: {document.title}")
+                except Exception as vector_error:
+                    error_logger(f"添加工具到向量数据库失败: {str(vector_error)}")
+                    # 不影响主流程，只记录错误
+
+                info_logger(f"用户 {request.user.username} 通过AI生成工具: {document.title}")
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+            except TimeoutError as timeout_error:
+                error_logger(f"AI生成工具超时: {str(timeout_error)}")
+                return Response(
+                    {"error": "AI生成超时，请稍后重试。如果问题持续存在，请检查网络连接或联系管理员。"},
+                    status=status.HTTP_408_REQUEST_TIMEOUT
+                )
+            except Exception as ai_error:
+                error_logger(f"AI生成工具失败: {str(ai_error)}")
+                return Response(
+                    {"error": f"AI生成工具失败: {str(ai_error)}。请检查描述是否清晰，或稍后重试。"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        except Exception as e:
+            error_logger(f"生成工具失败: {str(e)}")
+            return Response(
+                {"error": "生成工具失败"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _add_tool_to_vector_db(self, document, tool_data, user):
+        """添加工具到向量数据库"""
+        from ..utils.async_helper import VectorDBAsyncWrapper
+        return VectorDBAsyncWrapper.add_tool_to_vector_db(document, tool_data, user)
+
+    def _update_tool_in_vector_db(self, document, tool_data, user):
+        """更新向量数据库中的工具"""
+        from ..utils.async_helper import VectorDBAsyncWrapper
+        return VectorDBAsyncWrapper.update_tool_in_vector_db(document, tool_data, user)
+
+    def _delete_tool_from_vector_db(self, document, user):
+        """从向量数据库中删除工具"""
+        from ..utils.async_helper import VectorDBAsyncWrapper
+        return VectorDBAsyncWrapper.delete_tool_from_vector_db(document, user)

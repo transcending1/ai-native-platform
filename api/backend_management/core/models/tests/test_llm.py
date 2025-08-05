@@ -74,16 +74,11 @@ def test_tool_generation_llm():
             user_question="请帮我写一个请假的函数，输入请假天数，哪时候开始请假即可。",
             examples=tool_generator_examples_to_messages
         )
+        config_json = json.loads(cache.get('code_model'))
         res = tool_generator_llm.invoke(
             messages,
             config={
-                "configurable": {
-                    "global_model": "Qwen3-30B-A3B-FP8",  # 模型ID
-                    "global_model_provider": "openai",  # 模型提供商
-                    "global_temperature": 0.1,  # 固定写死
-                    "global_base_url": os.getenv('CHAT_MODEL_DEFAULT_BASE_URL'),  # 基础URL
-                    "global_api_key": os.getenv('CHAT_MODEL_DEFAULT_API_KEY'),  # API密钥
-                }
+                "configurable": config_json
             }
         )
         pprint(res)

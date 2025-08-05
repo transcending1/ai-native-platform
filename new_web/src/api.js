@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus'
 // 创建axios实例
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
-  timeout: 10000,
+  timeout: 180000, // 3分钟超时
   headers: {
     'Content-Type': 'application/json'
   }
@@ -366,6 +366,11 @@ export const knowledgeAPI = {
   // 获取工具执行历史
   getToolExecutions: (namespaceId, documentId, params = {}) => {
     return apiClient.get(`/knowledge/namespaces/${namespaceId}/documents/${documentId}/tool_executions/`, { params })
+  },
+
+  // AI智能生成工具
+  generateToolByAI: (namespaceId, data) => {
+    return apiClient.post(`/knowledge/namespaces/${namespaceId}/documents/generate_tool_by_ai/`, data)
   },
 
   // 表单知识相关API

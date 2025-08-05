@@ -18,9 +18,28 @@
                   <el-icon><Document /></el-icon>
                   新建文档
                 </el-dropdown-item>
-                <el-dropdown-item command="new-tool">
-                  <el-icon><Tools /></el-icon>
-                  新建工具
+                <el-dropdown-item divided>
+                  <el-dropdown @command="handleToolCommand" trigger="hover" placement="right-start">
+                    <span class="flex items-center justify-between w-full cursor-pointer">
+                      <span class="flex items-center">
+                        <el-icon class="mr-2"><Tools /></el-icon>
+                        工具
+                      </span>
+                      <el-icon class="text-gray-400"><ArrowRight /></el-icon>
+                    </span>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="new-tool-manual">
+                          <el-icon class="mr-2"><Tools /></el-icon>
+                          手动创建工具
+                        </el-dropdown-item>
+                        <el-dropdown-item command="new-tool-ai">
+                          <el-icon class="mr-2"><Star /></el-icon>
+                          AI生成工具
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
                 </el-dropdown-item>
                 <el-dropdown-item command="new-form">
                   <el-icon><Grid /></el-icon>
@@ -117,6 +136,13 @@
       :parent-folder="createParentFolder"
       @success="handleCreateSuccess"
     />
+    
+    <CreateToolByAIDialog
+      v-model="showCreateToolByAIDialog"
+      :namespace-id="namespaceId"
+      :parent-folder="createParentFolder"
+      @success="handleCreateSuccess"
+    />
   </div>
 </template>
 
@@ -125,7 +151,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { 
-  Plus, Search, Document, Folder, Tools, Grid
+  Plus, Search, Document, Folder, Tools, Grid, Star, ArrowRight
 } from '@element-plus/icons-vue'
 import { knowledgeAPI } from '@/api.js'
 import DocumentTree from './components/DocumentTree.vue'
@@ -134,6 +160,7 @@ import CreateFolderDialog from './components/CreateFolderDialog.vue'
 import CreateDocumentDialog from './components/CreateDocumentDialog.vue'
 import CreateToolDialog from './components/CreateToolDialog.vue'
 import CreateFormDialog from './components/CreateFormDialog.vue'
+import CreateToolByAIDialog from './components/CreateToolByAIDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -152,6 +179,7 @@ const showCreateFolderDialog = ref(false)
 const showCreateDocumentDialog = ref(false)
 const showCreateToolDialog = ref(false)
 const showCreateFormDialog = ref(false)
+const showCreateToolByAIDialog = ref(false)
 const createParentFolder = ref(null)
 
 // 文档树组件引用
@@ -180,11 +208,22 @@ const handleCommand = (command) => {
     case 'new-document':
       showCreateDocumentDialog.value = true
       break
-    case 'new-tool':
-      showCreateToolDialog.value = true
-      break
     case 'new-form':
       showCreateFormDialog.value = true
+      break
+  }
+}
+
+// 处理工具子菜单命令
+const handleToolCommand = (command) => {
+  createParentFolder.value = null
+  
+  switch (command) {
+    case 'new-tool-manual':
+      showCreateToolDialog.value = true
+      break
+    case 'new-tool-ai':
+      showCreateToolByAIDialog.value = true
       break
   }
 }
@@ -315,6 +354,7 @@ const handleCreateSuccess = (newDocument) => {
   showCreateFolderDialog.value = false
   showCreateDocumentDialog.value = false
   showCreateToolDialog.value = false
+  showCreateToolByAIDialog.value = false
   showCreateFormDialog.value = false
   
   // 如果创建的不是文件夹，选中新文档
@@ -357,5 +397,32 @@ onMounted(() => {
 
 .right-panel {
   min-width: 0; /* 允许flex收缩 */
+}
+
+/* 嵌套下拉菜单样式 */
+:deep(.el-dropdown-menu__item) {
+  padding: 8px 16px;
+}
+
+:deep(.el-dropdown-menu__item:hover) {
+  background-color: #f0f9ff;
+  color: #1890ff;
+}
+
+/* 工具子菜单样式 */
+:deep(.el-dropdown-menu .el-dropdown-menu) {
+  margin-left: 4px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+:deep(.el-dropdown-menu .el-dropdown-menu .el-dropdown-menu__item) {
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+:deep(.el-dropdown-menu .el-dropdown-menu .el-dropdown-menu__item:hover) {
+  background-color: #e6f7ff;
+  color: #1890ff;
 }
 </style>
