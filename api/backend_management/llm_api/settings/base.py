@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'storages',
     'knowledge',
     'provider',
+    'bot',
 ]
 
 MIDDLEWARE = [

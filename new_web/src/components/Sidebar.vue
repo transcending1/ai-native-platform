@@ -80,6 +80,12 @@
           <el-icon><Document /></el-icon>
           <template #title>知识管理</template>
         </el-menu-item>
+
+        <!-- Assistants管理 -->
+        <el-menu-item index="/bot-management">
+          <el-icon><ChatDotRound /></el-icon>
+          <template #title>Assistants管理</template>
+        </el-menu-item>
       </el-menu>
     </div>
 
@@ -109,7 +115,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user.js'
 import appConfig from '@/config/app.js'
-import { House, Setting, User, Tools, Document } from '@element-plus/icons-vue'
+import { House, Setting, User, Tools, Document, ChatDotRound } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()

@@ -45,6 +45,7 @@ urlpatterns = [
                   path('user/', include('user.urls'), name='user'),
                   path('knowledge/', include('knowledge.urls'), name='knowledge'),
                   path('provider/', include('provider.urls'), name='provider'),
+                  path('bot/', include('bot.urls'), name='bot'),
 
                   # static
                   path('static/', include('django.contrib.staticfiles.urls')),

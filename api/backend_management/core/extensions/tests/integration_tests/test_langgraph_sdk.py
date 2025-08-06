@@ -1,13 +1,6 @@
 import allure
-from langgraph_sdk import get_sync_client
 
-url = "http://222.186.32.152:32710"
-api_key = None
-graph_id = "agent"
-LLM_HOST = "222.186.32.152"
-LLM_PORT = 32710
-
-llm_client = get_sync_client(url=f"http://{LLM_HOST}:{LLM_PORT}", api_key=api_key)
+from core.extensions.ext_langgraph import langgraph_client, GRAPH_ID
 
 config = {
     "configurable": {
@@ -65,7 +58,6 @@ config = {
 name = "Open AI Assistant"
 description = "这是一个Open AI Assistant的示例"
 metadata = {
-    "tenant": "tenant1",
     "owner": "admin",
     "update_time": "2023-10-01T12:00:00Z",
 }
@@ -73,21 +65,29 @@ metadata = {
 
 def test_assistants():
     with allure.step("创建Assistants"):
-        openai_assistant = llm_client.assistants.create(
-            graph_id=graph_id,
-            config=config,
+        openai_assistant = langgraph_client.assistants.create(
+            graph_id=GRAPH_ID,
+            # config=config,  # 一开始创建可以不传config
             name=name,
             description=name,
             metadata=metadata
         )
         openai_assistant_id = openai_assistant['assistant_id']
+        langgraph_client.assistants.update(
+            assistant_id=openai_assistant_id,
+            graph_id=GRAPH_ID,
+            config=config,
+            metadata=metadata,
+            name=name,
+            description=description
+        )
 
     with allure.step("获取Assistants列表"):
-        assistants = llm_client.assistants.search(
+        assistants = langgraph_client.assistants.search(
             metadata={
                 "owner": "admin"  # 过滤条件，指定所有者
             },
-            graph_id=graph_id,  # 图ID
+            graph_id=GRAPH_ID,  # 图ID
             limit=10,  # 每页数量
             offset=0,  # 第几页
             sort_by="created_at",  # 排序字段
@@ -96,16 +96,16 @@ def test_assistants():
         assert any([assistant['assistant_id'] == openai_assistant_id for assistant in assistants])
 
     with allure.step("进入调试界面创建测试Thread"):
-        thread = llm_client.threads.create(
+        thread = langgraph_client.threads.create(
             metadata=metadata | {
                 "assistant_id": openai_assistant_id,
                 "is_test_thread": "True"  # 标记为测试线程
             },
-            graph_id=graph_id
+            graph_id=GRAPH_ID
         )
 
     with allure.step("第一轮对话:发送消息到Assistants"):
-        for stream_mode, chuck in llm_client.runs.stream(
+        for stream_mode, chuck in langgraph_client.runs.stream(
                 thread_id=thread['thread_id'],
                 assistant_id=openai_assistant_id,
                 input={"question": "我的名字叫小明"},
@@ -119,7 +119,7 @@ def test_assistants():
                 print(chuck)
 
     with allure.step("第二轮对话:发送消息到Assistants,证明有记忆力"):
-        for stream_mode, chuck in llm_client.runs.stream(
+        for stream_mode, chuck in langgraph_client.runs.stream(
                 thread_id=thread['thread_id'],
                 assistant_id=openai_assistant_id,
                 input={"question": "我的名字是啥？"},
@@ -133,7 +133,7 @@ def test_assistants():
                 print(chuck)
 
     with allure.step("下次点击调试的时候或者用户点击情况的时候重新创建测试thread"):
-        all_threads = llm_client.threads.search(
+        all_threads = langgraph_client.threads.search(
             metadata={
                 "assistant_id": openai_assistant_id,
                 "is_test_thread": "True"
@@ -142,16 +142,16 @@ def test_assistants():
             offset=0
         )
         for _thread in all_threads:
-            llm_client.threads.delete(
+            langgraph_client.threads.delete(
                 thread_id=_thread['thread_id']
             )
 
     with allure.step("更新Assistants"):
         config['configurable']['memory_config'] = 512
         metadata['owner'] = 'new_owner'
-        updated_assistant = llm_client.assistants.update(
+        updated_assistant = langgraph_client.assistants.update(
             assistant_id=openai_assistant_id,
-            graph_id=graph_id,
+            graph_id=GRAPH_ID,
             config=config,
             metadata=metadata
         )
@@ -159,6 +159,6 @@ def test_assistants():
         assert updated_assistant['metadata']['owner'] == 'new_owner'
 
     with allure.step("删除Assistants"):
-        llm_client.assistants.delete(
+        langgraph_client.assistants.delete(
             assistant_id=openai_assistant_id
         )

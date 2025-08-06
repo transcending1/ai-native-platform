@@ -8,6 +8,7 @@ import UserInfo from "../views/UserInfo/Main.vue"
 import KnowledgeNamespace from "../views/KnowledgeNamespace/Main.vue"
 import KnowledgeManagement from "../views/KnowledgeManagement/Main.vue"
 import ProviderManagement from "../views/ProviderManagement/Main.vue"
+import BotManagement from "../views/Bot/Main.vue"
 
 const routes = [
   {
@@ -76,6 +77,17 @@ const routes = [
       breadcrumb: [
         { name: '系统管理', path: '#' },
         { name: 'Provider管理', path: '/provider-management' }
+      ]
+    }
+  },
+  {
+    path: '/bot-management',
+    name: 'BotManagement',
+    component: BotManagement,
+    meta: { 
+      requiresAuth: true,
+      breadcrumb: [
+        { name: 'Assistants管理', path: '/bot-management' }
       ]
     }
   }

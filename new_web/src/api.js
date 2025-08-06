@@ -409,4 +409,67 @@ export const providerAPI = {
   getLLMProviders: () => apiClient.get('/provider/llm-models/get_providers/'),
 }
 
+// Bot管理相关API
+export const botAPI = {
+  // 获取Bot列表
+  getBots: (params = {}) => {
+    return apiClient.get('/bot/bots/', { params })
+  },
+
+  // 获取Bot详情
+  getBot: (id) => {
+    return apiClient.get(`/bot/bots/${id}/`)
+  },
+
+  // 创建Bot
+  createBot: (data) => {
+    return apiClient.post('/bot/bots/', data)
+  },
+
+  // 更新Bot
+  updateBot: (id, data) => {
+    return apiClient.put(`/bot/bots/${id}/`, data)
+  },
+
+  // 部分更新Bot
+  patchBot: (id, data) => {
+    return apiClient.patch(`/bot/bots/${id}/`, data)
+  },
+
+  // 删除Bot
+  deleteBot: (id) => {
+    return apiClient.delete(`/bot/bots/${id}/`)
+  },
+
+  // 更新Bot基本信息
+  updateBasicInfo: (id, data) => {
+    return apiClient.patch(`/bot/bots/${id}/update_basic/`, data)
+  },
+
+  // 添加协作者
+  addCollaborator: (id, data) => {
+    return apiClient.post(`/bot/bots/${id}/add_collaborator/`, data)
+  },
+
+  // 更新协作者权限
+  updateCollaborator: (id, userId, data) => {
+    return apiClient.patch(`/bot/bots/${id}/collaborators/${userId}/`, data)
+  },
+
+  // 移除协作者
+  removeCollaborator: (id, userId) => {
+    return apiClient.delete(`/bot/bots/${id}/collaborators/${userId}/`)
+  },
+
+  // 获取协作者列表
+  getCollaborators: (id) => {
+    return apiClient.get(`/bot/bots/${id}/collaborators/`)
+  },
+
+  // 从LangGraph同步Bots
+  syncFromLangGraph: () => {
+    return apiClient.post('/bot/bots/sync_from_langgraph/')
+  }
+}
+
 export default apiClient;
