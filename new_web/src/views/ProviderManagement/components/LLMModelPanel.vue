@@ -1,37 +1,31 @@
 <template>
   <div>
-    <!-- 面板头部 -->
-    <div class="flex justify-between items-center mb-6">
-      <div>
-        <h2 class="text-xl font-semibold text-gray-900">LLM模型</h2>
-        <p class="text-gray-600 mt-1">管理大语言模型配置</p>
-      </div>
-      <div class="flex items-center gap-4">
-        <!-- 搜索框 -->
-        <el-input
-          v-model="searchKeyword"
-          placeholder="搜索模型ID"
-          size="default"
-          style="width: 250px"
-          clearable
-          @change="handleSearch"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
-        
-        <!-- 新建按钮 -->
-        <el-button 
-          type="primary" 
-          size="default"
-          @click="showCreateDialog = true"
-          class="flex items-center gap-2"
-        >
-          <span>+</span>
-          新建LLM模型
-        </el-button>
-      </div>
+    <!-- 操作栏 -->
+    <div class="flex justify-end items-center gap-4 mb-6">
+      <!-- 搜索框 -->
+      <el-input
+        v-model="searchKeyword"
+        placeholder="搜索模型ID"
+        size="default"
+        style="width: 250px"
+        clearable
+        @change="handleSearch"
+      >
+        <template #prefix>
+          <el-icon><Search /></el-icon>
+        </template>
+      </el-input>
+      
+      <!-- 新建按钮 -->
+      <el-button 
+        type="primary" 
+        size="default"
+        @click="showCreateDialog = true"
+        class="flex items-center gap-2"
+      >
+        <span>+</span>
+        新建LLM模型
+      </el-button>
     </div>
 
     <!-- 模型列表 -->

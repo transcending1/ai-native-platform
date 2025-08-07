@@ -104,7 +104,8 @@
           <div
             v-for="bot in bots"
             :key="bot.id"
-            class="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200"
+            class="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200 cursor-pointer"
+            @click="handleEnterBot(bot)"
           >
             <!-- Bot头像 -->
             <div class="relative h-32 bg-gradient-to-br from-purple-50 to-indigo-100 rounded-t-lg overflow-hidden">
@@ -126,6 +127,7 @@
                     circle 
                     :icon="MoreFilled" 
                     class="bg-white/80 hover:bg-white border-0 shadow-sm"
+                    @click.stop
                   />
                   <template #dropdown>
                     <el-dropdown-menu>
@@ -196,17 +198,7 @@
               </div>
               
 
-              
-              <!-- 操作按钮 -->
-              <div class="flex justify-end">
-                <el-button 
-                  type="primary" 
-                  size="small"
-                  @click.stop="handleEnterBot(bot)"
-                >
-                  进入Assistant
-                </el-button>
-              </div>
+
             </div>
           </div>
         </div>
@@ -477,14 +469,12 @@ const handleUpdateSuccess = () => {
 
 // 处理进入Bot
 const handleEnterBot = (bot) => {
-  // 这里可以根据需要跳转到Bot的详情页面或调试界面
-  ElMessage.info(`即将进入Assistant: ${bot.name}`)
-  // router.push({
-  //   name: 'BotDetail',
-  //   params: {
-  //     botId: bot.id
-  //   }
-  // })
+  router.push({
+    name: 'BotDetail',
+    params: {
+      botId: bot.id
+    }
+  })
 }
 
 // 页面加载时获取数据

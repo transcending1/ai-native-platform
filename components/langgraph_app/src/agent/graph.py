@@ -49,7 +49,7 @@ async def generate(state: State, config):
         messages = rag_prompt_template.invoke(
             {
                 "context": rag_knowledge_context,
-                "prompt": configuration.rag_config.prompt
+                "prompt": configuration.chat_bot_config.prompt
             }
         )
         messages.messages.extend(state["messages"])
@@ -75,8 +75,8 @@ async def generate(state: State, config):
         else:
             response = await rag_model_with_structured_output.ainvoke(messages)
             return {
-                "answer": response.answer,
-                "messages": AIMessage(content=response.answer)
+                "answer": response.answer if hasattr(response, 'answer') else response.content,
+                "messages": AIMessage(content=response.answer if hasattr(response, 'answer') else response.content)
             }
     else:
         # 聊天机器人系统消息每次动态生成,不尼禄状态机管理

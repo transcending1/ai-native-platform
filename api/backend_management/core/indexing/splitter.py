@@ -15,7 +15,7 @@ headers_to_split_on = [
 # MD splits
 markdown_splitter = MarkdownHeaderTextSplitter(
     headers_to_split_on=headers_to_split_on,
-    strip_headers=True
+    strip_headers=False
 )
 
 

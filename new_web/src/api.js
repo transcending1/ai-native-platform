@@ -469,6 +469,26 @@ export const botAPI = {
   // 从LangGraph同步Bots
   syncFromLangGraph: () => {
     return apiClient.post('/bot/bots/sync_from_langgraph/')
+  },
+
+  // 获取Bot配置
+  getBotConfig: (id) => {
+    return apiClient.get(`/bot/bots/${id}/get_config/`)
+  },
+
+  // 更新Bot配置
+  updateBotConfig: (id, data) => {
+    return apiClient.post(`/bot/bots/${id}/update_config/`, data)
+  },
+
+  // 获取可用模型列表
+  getAvailableModels: () => {
+    return apiClient.get('/bot/bots/available_models/')
+  },
+
+  // 获取可用知识库列表
+  getAvailableNamespaces: () => {
+    return apiClient.get('/bot/bots/available_namespaces/')
   }
 }
 

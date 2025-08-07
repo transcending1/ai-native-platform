@@ -11,8 +11,9 @@ T = TypeVar("T")
 
 @dataclass(kw_only=True)
 class SysConfig:
-    tenant_id: str = "tenant1"
+    tenant_id: str = "none"
     user_id: str = "user1"
+    owner: str = "user1"
 
 
 @dataclass(kw_only=True)

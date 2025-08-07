@@ -2,12 +2,12 @@ from itertools import islice
 from typing import Iterable, Iterator, TypeVar, Optional, Any, cast
 
 from langchain_core.documents import Document
-from langchain_core.indexing.api import _hash_string_to_uuid, _adelete
+from langchain_core.indexing.api import _hash_string_to_uuid, _delete
 from pydantic import model_validator
 
+from core.extensions.ext_weaviate import weaviate_client
 from core.indexing.de_duplication import de_duplicator
 from core.indexing.splitter import split_docs, split_tools
-from core.extensions.ext_weaviate import weaviate_client
 from core.utils.vector_store import get_vector_store
 
 T = TypeVar("T")
@@ -102,7 +102,7 @@ class _HashedDocument(Document):
         )
 
 
-async def index(
+def index(
         document_id: str,
         tenant: str,
         namespace: str,
@@ -148,7 +148,7 @@ async def index(
         source_ids = [
             doc.uid for doc in hashed_docs
         ]
-        to_add_ids, to_delete_ids = await de_duplicator.get_to_update_and_to_delete_doc_ids(
+        to_add_ids, to_delete_ids = de_duplicator.get_to_update_and_to_delete_doc_ids(
             document_id=document_id,
             source_ids=source_ids,
         )
@@ -160,14 +160,14 @@ async def index(
                 to_add_uids.append(source_id)
 
         if to_add_docs:
-            res = await vector_store.aadd_documents(
+            res = vector_store.add_documents(
                 to_add_docs,
                 ids=to_add_uids,
                 batch_size=batch_size,
             )
         if to_delete_ids:
-            await _adelete(vector_store, list(to_delete_ids))
-        await de_duplicator.update_source_ids(
+            _delete(vector_store, list(to_delete_ids))
+        de_duplicator.update_source_ids(
             document_id=document_id,
             to_add_ids=list(to_add_ids),
             to_delete_ids=list(to_delete_ids),
@@ -181,7 +181,7 @@ async def index(
     return all_to_add_ids, all_to_delete_ids
 
 
-async def delete(
+def delete(
         document_id: str,
         tenant: str,
         namespace: str,
@@ -200,12 +200,12 @@ async def delete(
         namespace=namespace,
         knowledge_type=knowledge_type
     )
-    source_ids = await de_duplicator.redis_client.smembers(document_id)
-    await _adelete(vector_store, source_ids)
-    await de_duplicator.delete(document_id)
+    source_ids = de_duplicator.redis_client.smembers(document_id)
+    _delete(vector_store, source_ids)
+    de_duplicator.delete(document_id)
 
 
-async def update_meta_data(
+def update_meta_data(
         document_id: str,
         tenant: str,
         namespace: str,
@@ -221,7 +221,7 @@ async def update_meta_data(
     :param knowledge_type: 知识类型：1.常规知识 2.工具知识
     :return:
     """
-    source_ids = await de_duplicator.get_all_source_ids(document_id)
+    source_ids = de_duplicator.get_all_source_ids(document_id)
     if knowledge_type == "common":
         jeopardy = weaviate_client.collections.get(f"common_knowledge_{tenant}_{namespace}")
     elif knowledge_type == "tool":

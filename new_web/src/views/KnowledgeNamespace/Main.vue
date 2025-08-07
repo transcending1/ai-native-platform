@@ -66,7 +66,8 @@
           <div
             v-for="namespace in namespaces"
             :key="namespace.id"
-            class="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200"
+            class="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200 cursor-pointer"
+            @click="handleEnterKnowledge(namespace)"
           >
             <!-- 知识库封面 -->
             <div class="relative h-32 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-t-lg overflow-hidden">
@@ -88,6 +89,7 @@
                     circle 
                     :icon="MoreFilled" 
                     class="bg-white/80 hover:bg-white border-0 shadow-sm"
+                    @click.stop
                   />
                   <template #dropdown>
                     <el-dropdown-menu>
@@ -156,17 +158,7 @@
                 </div>
                 <span>{{ formatDate(namespace.updated_at) }}</span>
               </div>
-              
-              <!-- 操作按钮 -->
-              <div class="flex justify-end">
-                <el-button 
-                  type="primary" 
-                  size="small"
-                  @click.stop="handleEnterKnowledge(namespace)"
-                >
-                  进入知识库
-                </el-button>
-              </div>
+
             </div>
           </div>
         </div>

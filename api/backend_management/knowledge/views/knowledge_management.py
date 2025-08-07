@@ -1,4 +1,5 @@
 import json
+import re
 import uuid
 
 from django.core.cache import cache
@@ -13,6 +14,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
+from core.indexing.index import delete as delete_from_vector_db
 from core.models.extractor.tool_generator import tool_generator_llm, tool_generator_examples_to_messages
 from core.models.utils import from_examples_to_messages
 from core.tool.dynamic_tool import create_dynamic_tool
@@ -32,6 +34,7 @@ from ..serializers import (
     FormDataEntrySerializer,
     ToolExecutionSerializer
 )
+from ..utils.vector_db_helper import ToolVectorDBWrapper
 
 
 class KnowledgeBaseViewSet(viewsets.GenericViewSet):
@@ -314,11 +317,7 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
                 soft_delete_recursive(document)
 
                 # 异步删除向量数据库内容和清理图片
-                from ..utils.async_helper import AsyncHandler
-                AsyncHandler.safe_run(
-                    self._cleanup_documents_resources(documents_to_delete),
-                    "清理文档资源失败"
-                )
+                self._cleanup_documents_resources(documents_to_delete),
 
             info_logger(f"用户 {request.user.username} 删除文档: {document.title}")
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -331,16 +330,15 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    async def _cleanup_documents_resources(self, documents):
+    def _cleanup_documents_resources(self, documents):
         """清理文档相关资源（向量数据库和图片）"""
         try:
-            from core.indexing.index import delete as delete_from_vector_db
 
             for doc in documents:
                 # 删除普通文档的向量数据库内容
                 if doc.is_document and doc.markdown_content:
                     try:
-                        await delete_from_vector_db(
+                        delete_from_vector_db(
                             document_id=str(doc.id),
                             tenant=str(doc.creator.id),
                             namespace=str(doc.namespace.id),
@@ -353,7 +351,7 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
                 # 删除工具文档的向量数据库内容
                 elif doc.is_tool:
                     try:
-                        await delete_from_vector_db(
+                        delete_from_vector_db(
                             document_id=str(doc.id),
                             tenant=str(doc.creator.id),
                             namespace=str(doc.namespace.id),
@@ -365,12 +363,12 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
 
                 # 清理文档相关图片
                 if doc.content:
-                    await self._cleanup_document_images(doc)
+                    self._cleanup_document_images(doc)
 
         except Exception as e:
             error_logger(f"清理文档资源失败: {str(e)}")
 
-    async def _cleanup_document_images(self, document):
+    def _cleanup_document_images(self, document):
         """清理文档相关图片"""
         try:
             # 提取文档中的图片URL
@@ -378,24 +376,25 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
 
             for image_url in image_urls:
                 # 直接删除图片（文档删除时不再需要引用计数）
-                await self._delete_cos_image(image_url)
+                self._delete_cos_image(image_url)
                 info_logger(f"已删除文档图片: {image_url}")
 
         except Exception as e:
             error_logger(f"清理文档图片失败: {str(e)}")
 
-    def _extract_image_urls(self, html_content):
+    @staticmethod
+    def _extract_image_urls(html_content):
         """从HTML内容中提取图片URL"""
         if not html_content:
             return []
 
-        import re
         # 匹配img标签中的src属性，只匹配COS存储的图片
         pattern = r'<img[^>]*src="([^"]*knowledge/[^"]*)"[^>]*>'
         matches = re.findall(pattern, html_content)
         return matches
 
-    async def _delete_cos_image(self, image_url):
+    @staticmethod
+    def _delete_cos_image(image_url):
         """删除COS中的图片"""
         try:
             # 从URL中提取文件路径
@@ -611,41 +610,6 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
             error_logger(f"执行工具失败: {str(e)}")
             return Response(
                 {"error": "执行工具失败"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @swagger_auto_schema(
-        operation_summary="获取工具执行历史",
-        operation_description="获取指定工具的执行历史记录",
-        responses={200: ToolExecutionSerializer(many=True)}
-    )
-    @action(detail=True, methods=['get'])
-    def tool_executions(self, request, namespace_pk=None, pk=None):
-        """获取工具执行历史"""
-        try:
-            namespace = self.get_namespace()
-            document = get_object_or_404(
-                KnowledgeDocument,
-                id=pk,
-                namespace=namespace,
-                is_active=True,
-                doc_type='tool'
-            )
-
-            # 检查访问权限
-            if not document.can_access(request.user):
-                raise PermissionDenied("您没有访问此工具的权限")
-
-            executions = document.tool_executions.all()
-            serializer = ToolExecutionSerializer(executions, many=True)
-            return Response(serializer.data)
-
-        except PermissionDenied:
-            raise
-        except Exception as e:
-            error_logger(f"获取工具执行历史失败: {str(e)}")
-            return Response(
-                {"error": "获取工具执行历史失败"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -939,9 +903,8 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
                 document = serializer.save()
 
                 # 异步添加到向量数据库
-                from ..utils.async_helper import VectorDBAsyncWrapper
                 try:
-                    VectorDBAsyncWrapper.add_tool_to_vector_db(document, tool_data, request.user)
+                    ToolVectorDBWrapper.add_tool_to_vector_db(document, tool_data, request.user)
                     info_logger(f"工具已添加到向量数据库: {document.title}")
                 except Exception as vector_error:
                     error_logger(f"添加工具到向量数据库失败: {str(vector_error)}")
@@ -969,18 +932,3 @@ class KnowledgeDocumentViewSet(KnowledgeBaseViewSet):
                 {"error": "生成工具失败"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-    def _add_tool_to_vector_db(self, document, tool_data, user):
-        """添加工具到向量数据库"""
-        from ..utils.async_helper import VectorDBAsyncWrapper
-        return VectorDBAsyncWrapper.add_tool_to_vector_db(document, tool_data, user)
-
-    def _update_tool_in_vector_db(self, document, tool_data, user):
-        """更新向量数据库中的工具"""
-        from ..utils.async_helper import VectorDBAsyncWrapper
-        return VectorDBAsyncWrapper.update_tool_in_vector_db(document, tool_data, user)
-
-    def _delete_tool_from_vector_db(self, document, user):
-        """从向量数据库中删除工具"""
-        from ..utils.async_helper import VectorDBAsyncWrapper
-        return VectorDBAsyncWrapper.delete_tool_from_vector_db(document, user)

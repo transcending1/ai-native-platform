@@ -22,7 +22,7 @@ def get_input_config(
             },
             "rag_config": {
                 # "prompt": "你是情感伴侣",
-                "prompt": "你是专利专家，非常擅长回答用户的专利问题",
+                # "prompt": "你是专利专家，非常擅长回答用户的专利问题",
                 "is_rag": is_common_rag,
                 "retrieve_top_n": 5,
                 "retrieve_threshold": 0.2,
@@ -45,19 +45,24 @@ def get_input_config(
                 "namespace_list": ["namespace1"],
             },
             "memory_config": {
-                # "max_tokens": 256,
                 "max_tokens": 2560,
             },
+            "last_model": "Qwen3-30B-A3B-FP8",
+            "last_model_provider": "openai",
             "last_temperature": 0,
             "last_max_tokens": 5120,
+            "last_base_url": os.getenv('CHAT_MODEL_DEFAULT_BASE_URL'),
             "last_api_key": os.getenv('CHAT_MODEL_DEFAULT_API_KEY'),
             "last_extra_body": {
                 "chat_template_kwargs": {
                     "enable_thinking": False
                 }
             },
+            "knowledge_rerank_model": "Qwen3-30B-A3B-FP8",
+            "knowledge_rerank_model_provider": "openai",
             "knowledge_rerank_temperature": 0,
             "knowledge_rerank_max_tokens": 5120,
+            "knowledge_rerank_base_url": os.getenv('CHAT_MODEL_DEFAULT_BASE_URL'),
             "knowledge_rerank_api_key": os.getenv('CHAT_MODEL_DEFAULT_API_KEY'),
             "knowledge_rerank_extra_body": {
                 "chat_template_kwargs": {

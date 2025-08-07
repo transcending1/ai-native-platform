@@ -1,12 +1,5 @@
 <template>
   <div>
-    <!-- 面板头部 -->
-    <div class="flex justify-between items-center mb-6">
-      <div>
-        <h2 class="text-xl font-semibold text-gray-900">全局配置</h2>
-        <p class="text-gray-600 mt-1">配置全局Provider参数</p>
-      </div>
-    </div>
 
     <!-- 配置卡片 - 垂直排列 -->
     <div class="space-y-4">

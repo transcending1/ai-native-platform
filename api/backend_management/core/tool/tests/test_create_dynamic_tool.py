@@ -1,6 +1,10 @@
 import os
+from pprint import pprint
 
 import django
+from langgraph.prebuilt import create_react_agent
+
+from ai_native_core.model import knowledge_rerank_model
 from langchain_core.tools import ToolException
 
 from agent.utils import create_dynamic_tool
@@ -118,7 +122,14 @@ def test_dynamic_tool():
     print(tool._run(ip_address="192.168.1.1", time="2h", state="xxx", config=_config))
     # 输出: 机器申请结果：成功。IP地址：192.168.1.1，申请时长：2h。
 
-    # # 测试大模型调度Tool
+    agent = create_react_agent(
+        model=knowledge_rerank_model,
+        tools=[tool],
+        prompt=f"你是情感伴侣，请使用工具获取服务器状态。",
+    )
+
+
+    # # # 测试大模型调度Tool
     # for chunk in knowledge_rerank_model.bind_tools([
     #     tool
     # ]).stream(
@@ -301,6 +312,14 @@ def test_html_template():
     )
 
     print("Jinja2渲染结果:", jinja2_result)
+
+    agent = create_react_agent(
+        model=knowledge_rerank_model,
+        tools=[jinja2_tool],
+        prompt="你是系统监控助手，请使用工具获取服务器状态。",
+    )
+
+
 
 
 if __name__ == "__main__":

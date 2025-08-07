@@ -4,23 +4,30 @@ info:
   version: 0.0.1
   description: AI Native Platform
 paths:
-  /knowledge/namespaces/{namespace_pk}/documents/{id}/tool_executions/:
+  /knowledge/namespaces/:
     get:
-      operationId: knowledge_namespaces_documents_tool_executions_retrieve
-      description: 获取工具执行历史
+      operationId: knowledge_namespaces_list
+      description: 获取当前用户可访问的知识库列表，包括自己创建的和被邀请协作的知识库
+      summary: 获取知识库列表
       parameters:
-      - in: path
-        name: id
+      - in: query
+        name: access_type
         schema:
           type: string
-        required: true
-      - in: path
-        name: namespace_pk
+        description: 访问类型过滤：collaborators或public
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: search
         schema:
           type: string
-        required: true
+        description: 搜索关键词，支持按知识库名称搜索
       tags:
-      - knowledge
+      - 知识库管理
       security:
       - jwtAuth: []
       responses:
@@ -28,21 +35,22 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/KnowledgeDocumentDetail'
+                $ref: '#/components/schemas/PaginatedNamespaceListList'
           description: ''
-  /knowledge/namespaces/{id}/:
+  /provider/llm-models/:
     get:
-      operationId: knowledge_namespaces_retrieve
-      description: 获取指定知识库的详细信息
-      summary: 获取知识库详情
+      operationId: llm_model_list
+      description: 管理员获取所有LLM模型列表，支持搜索和排序
+      summary: 获取LLM模型列表
       parameters:
-      - in: path
-        name: id
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
         schema:
-          type: string
-        required: true
+          type: integer
       tags:
-      - 知识库管理
+      - Provider管理-LLM模型
       security:
       - jwtAuth: []
       responses:
@@ -50,367 +58,85 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Namespace'
+                $ref: '#/components/schemas/PaginatedLLMModelListResponseList'
           description: ''
-    put:
-      operationId: knowledge_namespaces_update
-      description: 更新知识库的基本信息
-      summary: 更新知识库
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
-      tags:
-      - 知识库管理
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Namespace'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/Namespace'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/Namespace'
-        required: true
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
+        '403':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Namespace'
+                $ref: '#/components/schemas/ErrorResponse'
           description: ''
-    patch:
-      operationId: knowledge_namespaces_partial_update
-      description: 部分更新知识库的基本信息
-      summary: 部分更新知识库
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
-      tags:
-      - 知识库管理
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchedNamespace'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/PatchedNamespace'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/PatchedNamespace'
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
+        '500':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Namespace'
-          description: ''
-    delete:
-      operationId: knowledge_namespaces_destroy
-      description: 删除指定的知识库（仅创建者可操作）
-      summary: 删除知识库
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
-      tags:
-      - 知识库管理
-      security:
-      - jwtAuth: []
-      responses:
-        '204':
-          description: No response body
-  /knowledge/namespaces/{id}/collaborators/:
-    get:
-      operationId: knowledge_namespaces_collaborators_retrieve
-      description: 获取知识库的所有协作者
-      summary: 获取协作者列表
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-        required: true
-      tags:
-      - 知识库管理
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Namespace'
+                $ref: '#/components/schemas/ErrorResponse'
           description: ''
 components:
   schemas:
-    PatchedNamespace:
+    PaginatedLLMModelListResponseList:
       type: object
-      description: 知识库序列化器
+      required:
+      - count
+      - results
       properties:
-        id:
+        count:
           type: integer
-          readOnly: true
-        name:
-          type: string
-          title: 知识库名称
-          description: 知识库的名称
-          maxLength: 255
-        description:
+          example: 123
+        next:
           type: string
           nullable: true
-          title: 知识库简介
-          description: 知识库的简介描述
-        cover:
-          type: string
           format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
           nullable: true
-          title: 知识库封面
-          description: 知识库封面图片，支持jpg、png、gif、webp格式，最大5MB
-        access_type:
-          allOf:
-          - $ref: '#/components/schemas/AccessTypeEnum'
-          title: 访问权限
-          description: '设置谁可以访问这个知识库
-
-
-            * `collaborators` - 仅协作者可访问
-
-            * `public` - 所有用户可访问'
-        creator:
-          allOf:
-          - $ref: '#/components/schemas/CollaboratorUser'
-          readOnly: true
-        slug:
-          type: string
-          readOnly: true
-          title: 知识库路径
-          description: 用于URL的唯一标识符，如果为空则自动生成
-        is_active:
-          type: boolean
-          title: 是否有效
-          description: 是否启用该知识库
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-          title: 创建时间
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
-          title: 更新时间
-        collaborators:
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
           type: array
           items:
-            $ref: '#/components/schemas/NamespaceCollaborator'
-          readOnly: true
-        collaborator_count:
-          type: string
-          readOnly: true
-        is_public:
-          type: string
-          readOnly: true
-        can_access:
-          type: string
-          readOnly: true
-        can_edit:
-          type: string
-          readOnly: true
-    KnowledgeDocumentDetail:
+            $ref: '#/components/schemas/LLMModelListResponse'
+    PaginatedNamespaceListList:
       type: object
-      description: 知识文档详情序列化器 - 用于详情显示和编辑
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        title:
-          type: string
-          title: 标题
-          description: 知识文档或文件夹的标题
-          maxLength: 255
-        content:
-          type: string
-          nullable: true
-          title: 内容
-          description: 知识文档的内容，支持Markdown格式
-        summary:
-          type: string
-          nullable: true
-          title: 摘要
-          description: 知识文档的摘要描述
-        doc_type:
-          allOf:
-          - $ref: '#/components/schemas/DocTypeEnum'
-          title: 文档类型
-          description: '文件夹、文档、工具或表单
-
-
-            * `folder` - 文件夹
-
-            * `document` - 文档
-
-            * `tool` - 工具
-
-            * `form` - 表单'
-        status:
-          allOf:
-          - $ref: '#/components/schemas/StatusEnum'
-          title: 状态
-        parent:
-          type: integer
-          nullable: true
-          title: 父级文档
-          description: 用于构建层次结构
-        sort_order:
-          type: integer
-          maximum: 2147483647
-          minimum: -2147483648
-          title: 排序序号
-          description: 在同级目录中的排序序号，数字越小排序越靠前
-        is_public:
-          type: boolean
-          title: 是否公开
-          description: 是否对知识库内所有成员公开
-        is_active:
-          type: boolean
-          title: 是否有效
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-          title: 创建时间
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
-          title: 更新时间
-        creator:
-          allOf:
-          - $ref: '#/components/schemas/UserSimple'
-          readOnly: true
-        last_editor:
-          allOf:
-          - $ref: '#/components/schemas/UserSimple'
-          readOnly: true
-        children:
-          type: string
-          readOnly: true
-        breadcrumbs:
-          type: string
-          readOnly: true
-        depth:
-          type: string
-          readOnly: true
       required:
-      - breadcrumbs
-      - children
-      - created_at
-      - creator
-      - depth
-      - id
-      - last_editor
-      - title
-      - updated_at
-    Namespace:
-      type: object
-      description: 知识库序列化器
+      - count
+      - results
       properties:
-        id:
+        count:
           type: integer
-          readOnly: true
-        name:
-          type: string
-          title: 知识库名称
-          description: 知识库的名称
-          maxLength: 255
-        description:
+          example: 123
+        next:
           type: string
           nullable: true
-          title: 知识库简介
-          description: 知识库的简介描述
-        cover:
-          type: string
           format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
           nullable: true
-          title: 知识库封面
-          description: 知识库封面图片，支持jpg、png、gif、webp格式，最大5MB
-        access_type:
-          allOf:
-          - $ref: '#/components/schemas/AccessTypeEnum'
-          title: 访问权限
-          description: '设置谁可以访问这个知识库
-
-
-            * `collaborators` - 仅协作者可访问
-
-            * `public` - 所有用户可访问'
-        creator:
-          allOf:
-          - $ref: '#/components/schemas/CollaboratorUser'
-          readOnly: true
-        slug:
-          type: string
-          readOnly: true
-          title: 知识库路径
-          description: 用于URL的唯一标识符，如果为空则自动生成
-        is_active:
-          type: boolean
-          title: 是否有效
-          description: 是否启用该知识库
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-          title: 创建时间
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
-          title: 更新时间
-        collaborators:
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
           type: array
           items:
-            $ref: '#/components/schemas/NamespaceCollaborator'
-          readOnly: true
-        collaborator_count:
+            $ref: '#/components/schemas/NamespaceList'
+    ErrorResponse:
+      type: object
+      description: 错误响应序列化器
+      properties:
+        code:
+          type: integer
+          description: 错误状态码
+        message:
           type: string
-          readOnly: true
-        is_public:
-          type: string
-          readOnly: true
-        can_access:
-          type: string
-          readOnly: true
-        can_edit:
-          type: string
-          readOnly: true
+          description: 错误消息
+        errors:
+          type: object
+          additionalProperties: {}
+          description: 详细错误信息
       required:
-      - can_access
-      - can_edit
-      - collaborator_count
-      - collaborators
-      - created_at
-      - creator
-      - id
-      - is_public
-      - name
-      - slug
-      - updated_at
+      - code
+      - message
   securitySchemes:
     jwtAuth:
       type: http

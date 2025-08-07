@@ -15,7 +15,7 @@ def get_vector_store(
     if knowledge_type == "common":
         return WeaviateVectorStore(
             client=weaviate_client,
-            index_name=f"common_knowledge_{tenant}_{namespace}",  # 数据库index，纵向隔离
+            index_name=f"common_knowledge_none_{namespace}",  # 数据库index，纵向隔离
             text_key='text',  # 文本字段
             embedding=embedding,
             attributes=[
@@ -31,7 +31,7 @@ def get_vector_store(
     elif knowledge_type == "tool":
         return WeaviateVectorStore(
             client=weaviate_client,
-            index_name=f"tool_knowledge_{tenant}_{namespace}",  # 数据库index，纵向隔离
+            index_name=f"tool_knowledge_none_{namespace}",  # 数据库index，纵向隔离
             text_key='text',  # 文本字段
             embedding=embedding,
             attributes=[

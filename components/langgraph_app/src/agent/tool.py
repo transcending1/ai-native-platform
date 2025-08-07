@@ -60,11 +60,15 @@ def get_agent(
         if tool_doc.metadata['tool_type'] == 'dynamic':
             tool_name = tool_doc.metadata['name']
             tool_few_shots = tool_doc.metadata['tool_trigger_selected_examples']
+            output_schema = json.loads(tool_doc.metadata['output_schema'])
+            jinja2_template = tool_doc.metadata['output_schema_jinja2_template']
             tool = create_dynamic_tool(
                 name=tool_name,
                 description=tool_doc.metadata['description'] + f"类似下面的问题:{tool_few_shots}\n可以使用这个工具",
                 input_schema=json.loads(tool_doc.metadata['input_schema']),
-                function_code=json.loads(tool_doc.metadata['extra_params'])['code']
+                function_code=json.loads(tool_doc.metadata['extra_params'])['code'],
+                output_schema=output_schema,
+                jinja2_template=jinja2_template
             )
             tools.append(tool)
     agent = create_react_agent(

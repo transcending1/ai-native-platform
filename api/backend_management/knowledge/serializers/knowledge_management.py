@@ -13,6 +13,7 @@ from ..models import (
     FormDataEntry,
     ToolExecution
 )
+from ..utils.vector_db_helper import ToolVectorDBWrapper
 
 User = get_user_model()
 
@@ -136,21 +137,19 @@ class KnowledgeDocumentDetailSerializer(serializers.ModelSerializer):
 
                 document.save()
 
-                # 异步存储到向量数据库
+                # 存储到向量数据库
                 if document.markdown_content and document.is_document:
-                    from ..utils.async_helper import AsyncHandler
+                    from ..utils.vector_db_helper import DocumentVectorDBWrapper
                     try:
-                        AsyncHandler.safe_run(
-                            self._store_to_vector_database(document),
-                            "向量数据库存储异步处理失败"
-                        )
+                        DocumentVectorDBWrapper.store_document_to_vector_db(document)
                     except Exception as e:
                         from llm_api.settings.base import error_logger
-                        error_logger(f"向量数据库存储异步处理失败: {str(e)}")
+                        error_logger(f"向量数据库存储处理失败: {str(e)}")
 
         return document
 
-    def _process_base64_images(self, html_content, namespace_id, document_id):
+    @staticmethod
+    def _process_base64_images(html_content, namespace_id, document_id):
         """处理HTML中的base64图片，转换为COS存储的URL"""
         if not html_content:
             return html_content
@@ -205,98 +204,45 @@ class KnowledgeDocumentDetailSerializer(serializers.ModelSerializer):
         return markdown_content.strip()
 
     @staticmethod
-    async def _store_to_vector_database(document):
-        """存储到向量数据库"""
-        try:
-            from core.indexing.index import index
-            from langchain_core.documents import Document as LangchainDocument
-
-            if not document.markdown_content:
-                return
-
-            # 创建文档对象
-            doc = LangchainDocument(
-                page_content=document.markdown_content,
-                metadata={
-                    "tenant": str(document.creator.id),
-                    "owner": str(document.creator.id),
-                    "namespace": str(document.namespace.id),
-                    "source": f"document_{document.id}",
-                    "document_id": str(document.id),
-                    "title": document.title,
-                    "H1": "",
-                    "H2": "",
-                    "H3": "",
-                    "H4": "",
-                    "H5": "",
-                    "H6": "",
-                }
-            )
-
-            # 存储到向量数据库
-            await index(
-                document_id=str(document.id),
-                tenant=str(document.creator.id),
-                namespace=str(document.namespace.id),
-                doc=doc,
-            )
-
-        except Exception as e:
-            from llm_api.settings.base import error_logger
-            error_logger(f"存储到向量数据库失败: {str(e)}")
-
-    def _extract_image_urls(self, html_content):
+    def _extract_image_urls(html_content):
         """从HTML内容中提取图片URL"""
         if not html_content:
             return []
-        
+
         # 匹配img标签中的src属性，只匹配COS存储的图片
         pattern = r'<img[^>]*src="([^"]*knowledge/[^"]*)"[^>]*>'
         matches = re.findall(pattern, html_content)
         return matches
 
-    def _cleanup_removed_images(self, old_image_urls, new_image_urls):
+    @staticmethod
+    def _cleanup_removed_images(old_image_urls, new_image_urls):
         """清理不再使用的图片"""
         try:
             # 计算删除的图片
             removed_images = set(old_image_urls) - set(new_image_urls)
-            
+
             # 删除不再使用的图片
             for image_url in removed_images:
-                import asyncio
                 try:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    loop.run_until_complete(self._delete_cos_image(image_url))
-                    loop.close()
+                    if 'knowledge/' in image_url:
+                        # 提取路径部分
+                        path_start = image_url.find('knowledge/')
+                        file_path = image_url[path_start:]
+
+                        # 删除COS文件
+                        if default_storage.exists(file_path):
+                            default_storage.delete(file_path)
+                            from llm_api.settings.base import info_logger
+                            info_logger(f"已删除COS图片: {file_path}")
                     from llm_api.settings.base import info_logger
                     info_logger(f"已删除不再使用的图片: {image_url}")
                 except Exception as e:
                     from llm_api.settings.base import error_logger
                     error_logger(f"删除图片失败: {str(e)}")
-                        
+
         except Exception as e:
             from llm_api.settings.base import error_logger
             error_logger(f"清理图片失败: {str(e)}")
-
-    async def _delete_cos_image(self, image_url):
-        """删除COS中的图片"""
-        try:
-            # 从URL中提取文件路径
-            if 'knowledge/' in image_url:
-                # 提取路径部分
-                path_start = image_url.find('knowledge/')
-                file_path = image_url[path_start:]
-                
-                # 删除COS文件
-                if default_storage.exists(file_path):
-                    default_storage.delete(file_path)
-                    from llm_api.settings.base import info_logger
-                    info_logger(f"已删除COS图片: {file_path}")
-                    
-        except Exception as e:
-            from llm_api.settings.base import error_logger
-            error_logger(f"删除COS图片失败: {str(e)}")
 
     def update(self, instance, validated_data):
         """更新文档"""
@@ -327,17 +273,14 @@ class KnowledgeDocumentDetailSerializer(serializers.ModelSerializer):
             new_image_urls = self._extract_image_urls(document.content) if document.content else []
             self._cleanup_removed_images(old_image_urls, new_image_urls)
 
-        # 异步存储到向量数据库
+        # 存储到向量数据库
         if document.markdown_content and document.is_document:
-            from ..utils.async_helper import AsyncHandler
+            from ..utils.vector_db_helper import DocumentVectorDBWrapper
             try:
-                AsyncHandler.safe_run(
-                    self._store_to_vector_database(document),
-                    "向量数据库存储异步处理失败"
-                )
+                DocumentVectorDBWrapper.store_document_to_vector_db(document)
             except Exception as e:
                 from llm_api.settings.base import error_logger
-                error_logger(f"向量数据库存储异步处理失败: {str(e)}")
+                error_logger(f"向量数据库存储处理失败: {str(e)}")
 
         return document
 
@@ -685,11 +628,11 @@ class KnowledgeDocumentToolSerializer(KnowledgeDocumentDetailSerializer):
         if tool_data:
             instance.set_tool_data(tool_data)
             instance.save()
-            
+
             # 添加工具到向量数据库
             try:
-                from ..utils.async_helper import VectorDBAsyncWrapper
-                VectorDBAsyncWrapper.add_tool_to_vector_db(instance, tool_data, self.context['request'].user)
+                from ..utils.vector_db_helper import ToolVectorDBWrapper
+                ToolVectorDBWrapper.add_tool_to_vector_db(instance, tool_data, self.context['request'].user)
                 from llm_api.settings.base import info_logger
                 info_logger(f"工具 {instance.title} 已成功添加到向量数据库")
             except Exception as e:
@@ -711,11 +654,10 @@ class KnowledgeDocumentToolSerializer(KnowledgeDocumentDetailSerializer):
         if tool_data and instance.is_tool:
             instance.set_tool_data(tool_data)
             instance.save()
-            
+
             # 更新向量数据库中的工具
             try:
-                from ..utils.async_helper import VectorDBAsyncWrapper
-                VectorDBAsyncWrapper.update_tool_in_vector_db(instance, tool_data, self.context['request'].user)
+                ToolVectorDBWrapper.add_tool_to_vector_db(instance, tool_data, self.context['request'].user)
                 from llm_api.settings.base import info_logger
                 info_logger(f"工具 {instance.title} 已成功更新到向量数据库")
             except Exception as e:

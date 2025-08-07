@@ -111,104 +111,9 @@ class BotViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         """
-        重写list方法，支持从LangGraph获取Assistants列表
+        获取Bot列表
         """
-        # 获取查询参数
-        search = request.query_params.get('search', '')
-        access_type = request.query_params.get('access_type', '')
-        page = int(request.query_params.get('page', 1))
-        page_size = int(request.query_params.get('page_size', 10))
-        
-        # 计算offset
-        offset = (page - 1) * page_size
-        
-        try:
-            # 准备元数据过滤条件
-            metadata_filter = {}
-            
-            # 如果指定了访问类型，添加到元数据过滤
-            if access_type:
-                metadata_filter['access_type'] = access_type
-            
-            # 如果指定了搜索关键词，添加到元数据过滤
-            if search:
-                metadata_filter['search_keyword'] = search
-            
-            # 添加用户ID过滤（只显示当前用户的Bot）
-            metadata_filter['user_id'] = str(request.user.id)
-            
-            # 调用LangGraph API获取Assistants列表
-            assistants = langgraph_client.assistants.search(
-                metadata=metadata_filter,
-                graph_id=GRAPH_ID,
-                limit=page_size,
-                offset=offset,
-                sort_by="created_at",
-                sort_order='desc'
-            )
-            
-            # 将LangGraph的Assistants转换为Bot对象
-            bot_list = []
-            for assistant in assistants:
-                # 检查本地数据库中是否已存在该Bot
-                bot, created = Bot.objects.get_or_create(
-                    assistant_id=assistant['assistant_id'],
-                    defaults={
-                        'name': assistant.get('name', f"Assistant_{assistant['assistant_id'][:8]}"),
-                        'description': assistant.get('description', ''),
-                        'creator': request.user,
-                        'graph_id': assistant.get('graph_id', GRAPH_ID),
-                        'access_type': assistant.get('metadata', {}).get('access_type', 'collaborators'),
-                    }
-                )
-                
-                # 如果Bot已存在，更新基本信息
-                if not created:
-                    bot.name = assistant.get('name', bot.name)
-                    bot.description = assistant.get('description', bot.description)
-                    bot.save()
-                
-                # 检查用户是否有权限访问此Bot
-                if bot.can_access(request.user):
-                    bot_list.append(bot)
-            
-            # 序列化Bot列表
-            serializer = self.get_serializer(bot_list, many=True)
-            
-            # 构造分页响应
-            total_count = len(bot_list)  # 这里简化处理，实际应该从LangGraph获取总数
-            
-            return Response({
-                'count': total_count,
-                'next': f"?page={page + 1}" if len(bot_list) == page_size else None,
-                'previous': f"?page={page - 1}" if page > 1 else None,
-                'results': serializer.data
-            })
-            
-        except Exception as e:
-            error_logger(f"LangGraph API调用失败，回退到本地数据库查询: {str(e)}")
-            # 如果LangGraph API调用失败，回退到本地数据库查询
-            queryset = self.get_queryset()
-            
-            # 应用搜索过滤
-            if search:
-                queryset = queryset.filter(name__icontains=search)
-            
-            if access_type:
-                queryset = queryset.filter(access_type=access_type)
-            
-            # 分页
-            paginator = self.paginator_class(queryset, page_size)
-            page_obj = paginator.get_page(page)
-            
-            serializer = self.get_serializer(page_obj, many=True)
-            
-            return Response({
-                'count': paginator.count,
-                'next': page_obj.has_next() and f"?page={page + 1}" or None,
-                'previous': page_obj.has_previous() and f"?page={page - 1}" or None,
-                'results': serializer.data
-            })
+        return super().list(request, *args, **kwargs)
 
     def get_serializer_class(self):
         """
@@ -301,12 +206,22 @@ class BotViewSet(viewsets.ModelViewSet):
             error_logger(f"更新Bot时同步LangGraph API失败: {str(e)}")
             warning_logger(f"Bot {bot.name} 数据库更新成功，但LangGraph同步失败")
 
-    def perform_destroy(self, instance):
+    def destroy(self, request, *args, **kwargs):
         """
         删除Bot时检查权限并删除LangGraph中的Assistant
         """
-        if instance.creator != self.request.user:
-            error_logger(f"用户 {self.request.user.username} 尝试删除非自己创建的Bot: {instance.name}")
+        # 直接通过pk获取Bot，不使用过滤的queryset
+        try:
+            instance = Bot.objects.get(pk=kwargs['pk'], is_active=True)
+        except Bot.DoesNotExist:
+            return Response(
+                {'error': 'Bot不存在'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # 检查权限
+        if instance.creator != request.user:
+            error_logger(f"用户 {request.user.username} 尝试删除非自己创建的Bot: {instance.name}")
             return Response(
                 {'error': '只有创建者可以删除Bot'},
                 status=status.HTTP_403_FORBIDDEN
@@ -324,8 +239,10 @@ class BotViewSet(viewsets.ModelViewSet):
             error_logger(f"删除LangGraph Assistant失败: {str(e)}")
             warning_logger(f"继续删除数据库中的Bot: {instance.name}")
         
-        info_logger(f"用户 {self.request.user.username} 删除了Bot: {instance.name}")
+        info_logger(f"用户 {request.user.username} 删除了Bot: {instance.name}")
         instance.delete()
+        
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(
         summary="添加协作者",
@@ -606,5 +523,436 @@ class BotViewSet(viewsets.ModelViewSet):
             error_logger(f"从LangGraph同步Assistants失败: {str(e)}")
             return Response(
                 {'error': f'同步失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @extend_schema(
+        summary="更新Bot配置",
+        description="更新Bot的详细配置，包括模型配置、记忆配置、RAG配置等",
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'prompt': {'type': 'string', 'description': 'Bot的人设与回复逻辑'},
+                    'model_config': {
+                        'type': 'object',
+                        'properties': {
+                            'last_model': {'type': 'string', 'description': '问答模型名称'},
+                            'last_model_provider': {'type': 'string', 'description': '问答模型提供商'},
+                            'last_temperature': {'type': 'number', 'description': '问答模型温度'},
+                            'last_max_tokens': {'type': 'integer', 'description': '问答模型最大Token数'},
+                            'knowledge_rerank_model': {'type': 'string', 'description': '知识精排模型名称'},
+                            'knowledge_rerank_model_provider': {'type': 'string', 'description': '知识精排模型提供商'},
+                            'knowledge_rerank_temperature': {'type': 'number', 'description': '知识精排模型温度'},
+                            'knowledge_rerank_max_tokens': {'type': 'integer', 'description': '知识精排模型最大Token数'},
+                        }
+                    },
+                    'memory_config': {
+                        'type': 'object',
+                        'properties': {
+                            'max_tokens': {'type': 'integer', 'description': '多轮对话记忆中最大的token数量'}
+                        }
+                    },
+                    'rag_config': {
+                        'type': 'object',
+                        'properties': {
+                            'is_rag': {'type': 'boolean', 'description': '是否开启普通知识的RAG模式'},
+                            'retrieve_top_n': {'type': 'integer', 'description': '召回文档数量'},
+                            'retrieve_threshold': {'type': 'number', 'description': '召回文档阈值'},
+                            'is_rerank': {'type': 'boolean', 'description': '是否开启重排模式'},
+                            'rerank_top_n': {'type': 'integer', 'description': '重排数量'},
+                            'rerank_threshold': {'type': 'number', 'description': '重排文档阈值'},
+                            'is_llm_rerank': {'type': 'boolean', 'description': '是否进行大模型重排操作'},
+                            'namespace_list': {'type': 'array', 'items': {'type': 'string'}, 'description': '知识库ID列表'},
+                        }
+                    },
+                    'tool_config': {
+                        'type': 'object',
+                        'properties': {
+                            'is_rag': {'type': 'boolean', 'description': '是否开启工具知识的RAG模式'},
+                            'retrieve_top_n': {'type': 'integer', 'description': '召回工具数量'},
+                            'retrieve_threshold': {'type': 'number', 'description': '召回工具阈值'},
+                            'is_rerank': {'type': 'boolean', 'description': '是否开启重排模式'},
+                            'rerank_top_n': {'type': 'integer', 'description': '重排数量'},
+                            'rerank_threshold': {'type': 'number', 'description': '重排文档阈值'},
+                            'is_llm_rerank': {'type': 'boolean', 'description': '是否进行大模型重排操作'},
+                            'max_iterations': {'type': 'integer', 'description': 'Agent的最大迭代次数'},
+                            'namespace_list': {'type': 'array', 'items': {'type': 'string'}, 'description': '工具知识库ID列表'},
+                        }
+                    }
+                }
+            }
+        },
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'message': {'type': 'string'},
+                    'config': {'type': 'object', 'description': '更新后的配置'}
+                }
+            },
+            400: {'description': '请求参数错误'},
+            403: {'description': '无权限操作'},
+            404: {'description': 'Bot不存在'},
+            500: {'description': '服务器错误'}
+        },
+        tags=['Bot管理']
+    )
+    @action(detail=True, methods=['post'])
+    def update_config(self, request, pk=None):
+        """
+        更新Bot配置
+        """
+        try:
+            bot = self.get_object()
+            
+            # 检查权限
+            if not bot.can_edit(request.user):
+                return Response(
+                    {'error': '您没有权限编辑此Bot'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            if not bot.assistant_id:
+                return Response(
+                    {'error': 'Bot未关联LangGraph Assistant'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # 构建LangGraph配置
+            config_data = request.data
+            langgraph_config = self._build_langgraph_config(config_data, request.user)
+            
+            # 更新LangGraph Assistant配置
+            updated_assistant = langgraph_client.assistants.update(
+                assistant_id=bot.assistant_id,
+                config=langgraph_config,
+            )
+            
+            info_logger(f"用户 {request.user.username} 更新了Bot配置: {bot.name}")
+            
+            return Response({
+                'message': 'Bot配置更新成功',
+                'config': updated_assistant.get('config', {})
+            })
+            
+        except Exception as e:
+            error_logger(f"更新Bot配置失败: {str(e)}")
+            return Response(
+                {'error': f'配置更新失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @extend_schema(
+        summary="获取Bot配置",
+        description="获取Bot的详细配置信息",
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'config': {'type': 'object', 'description': 'Bot配置信息'}
+                }
+            },
+            403: {'description': '无权限操作'},
+            404: {'description': 'Bot不存在'},
+            500: {'description': '服务器错误'}
+        },
+        tags=['Bot管理']
+    )
+    @action(detail=True, methods=['get'])
+    def get_config(self, request, pk=None):
+        """
+        获取Bot配置
+        """
+        try:
+            bot = self.get_object()
+            
+            # 检查权限
+            if not bot.can_access(request.user):
+                return Response(
+                    {'error': '您没有权限访问此Bot'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            if not bot.assistant_id:
+                return Response({
+                    'config': self._get_default_config(request.user)
+                })
+            
+            # 从LangGraph获取配置
+            assistant = langgraph_client.assistants.get(
+                assistant_id=bot.assistant_id
+            )
+            
+            return Response({
+                'config': assistant.get('config', {})
+            })
+            
+        except Exception as e:
+            error_logger(f"获取Bot配置失败: {str(e)}")
+            return Response(
+                {'error': f'获取配置失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _build_langgraph_config(self, config_data, user):
+        """
+        构建LangGraph配置
+        """
+        import os
+        from django.utils import timezone
+        
+        # 基础配置
+        base_config = {
+            "configurable": {
+                "sys_config": {
+                    "owner": str(user.id),
+                },
+                "chat_bot_config": {
+                    "prompt": config_data.get('prompt', '你是一个有用的AI助手'),
+                },
+                "memory_config": {
+                    "max_tokens": config_data.get('memory_config', {}).get('max_tokens', 2560),
+                },
+                "rag_config": {
+                    "is_rag": config_data.get('rag_config', {}).get('is_rag', True),
+                    "retrieve_top_n": config_data.get('rag_config', {}).get('retrieve_top_n', 5),
+                    "retrieve_threshold": config_data.get('rag_config', {}).get('retrieve_threshold', 0.2),
+                    "is_rerank": config_data.get('rag_config', {}).get('is_rerank', True),
+                    "rerank_top_n": config_data.get('rag_config', {}).get('rerank_top_n', 3),
+                    "rerank_threshold": config_data.get('rag_config', {}).get('rerank_threshold', 0.4),
+                    "is_llm_rerank": config_data.get('rag_config', {}).get('is_llm_rerank', True),
+                    "namespace_list": config_data.get('rag_config', {}).get('namespace_list', []),
+                    "is_structured_output": False
+                },
+                "tool_config": {
+                    "is_rag": config_data.get('tool_config', {}).get('is_rag', True),
+                    "retrieve_top_n": config_data.get('tool_config', {}).get('retrieve_top_n', 5),
+                    "retrieve_threshold": config_data.get('tool_config', {}).get('retrieve_threshold', 0.2),
+                    "is_rerank": config_data.get('tool_config', {}).get('is_rerank', True),
+                    "rerank_top_n": config_data.get('tool_config', {}).get('rerank_top_n', 3),
+                    "rerank_threshold": config_data.get('tool_config', {}).get('rerank_threshold', 0.4),
+                    "is_llm_rerank": config_data.get('tool_config', {}).get('is_llm_rerank', True),
+                    "max_iterations": config_data.get('tool_config', {}).get('max_iterations', 3),
+                    "namespace_list": config_data.get('tool_config', {}).get('namespace_list', []),
+                }
+            }
+        }
+        
+        # 模型配置
+        model_config = config_data.get('model_config', {})
+        
+        # 问答模型配置
+        if 'last_model' in model_config:
+            base_config["configurable"]["last_model"] = model_config['last_model']
+        if 'last_model_provider' in model_config:
+            base_config["configurable"]["last_model_provider"] = model_config['last_model_provider']
+        if 'last_temperature' in model_config:
+            base_config["configurable"]["last_temperature"] = model_config['last_temperature']
+        if 'last_max_tokens' in model_config:
+            base_config["configurable"]["last_max_tokens"] = model_config['last_max_tokens']
+        
+        # 设置默认API配置
+        base_config["configurable"]["last_base_url"] = os.getenv('CHAT_MODEL_DEFAULT_BASE_URL', '')
+        base_config["configurable"]["last_api_key"] = os.getenv('CHAT_MODEL_DEFAULT_API_KEY', '')
+        base_config["configurable"]["last_extra_body"] = {
+            "chat_template_kwargs": {
+                "enable_thinking": False
+            }
+        }
+        
+        # 知识精排模型配置
+        if 'knowledge_rerank_model' in model_config:
+            base_config["configurable"]["knowledge_rerank_model"] = model_config['knowledge_rerank_model']
+        if 'knowledge_rerank_model_provider' in model_config:
+            base_config["configurable"]["knowledge_rerank_model_provider"] = model_config['knowledge_rerank_model_provider']
+        if 'knowledge_rerank_temperature' in model_config:
+            base_config["configurable"]["knowledge_rerank_temperature"] = model_config['knowledge_rerank_temperature']
+        if 'knowledge_rerank_max_tokens' in model_config:
+            base_config["configurable"]["knowledge_rerank_max_tokens"] = model_config['knowledge_rerank_max_tokens']
+        
+        # 设置知识精排默认API配置
+        base_config["configurable"]["knowledge_rerank_base_url"] = os.getenv('CHAT_MODEL_DEFAULT_BASE_URL', '')
+        base_config["configurable"]["knowledge_rerank_api_key"] = os.getenv('CHAT_MODEL_DEFAULT_API_KEY', '')
+        base_config["configurable"]["knowledge_rerank_extra_body"] = {
+            "chat_template_kwargs": {
+                "enable_thinking": False
+            }
+        }
+        
+        return base_config
+
+    def _get_default_config(self, user):
+        """
+        获取默认配置
+        """
+        import os
+        
+        return {
+            "configurable": {
+                "sys_config": {
+                    "owner": str(user.id),
+                },
+                "chat_bot_config": {
+                    "prompt": "你是一个有用的AI助手",
+                },
+                "memory_config": {
+                    "max_tokens": 2560,
+                },
+                "rag_config": {
+                    "is_rag": True,
+                    "retrieve_top_n": 5,
+                    "retrieve_threshold": 0.2,
+                    "is_rerank": True,
+                    "rerank_top_n": 3,
+                    "rerank_threshold": 0.4,
+                    "is_llm_rerank": False,
+                    "namespace_list": [],
+                    "is_structured_output": False
+                },
+                "tool_config": {
+                    "is_rag": True,
+                    "retrieve_top_n": 5,
+                    "retrieve_threshold": 0.2,
+                    "is_rerank": True,
+                    "rerank_top_n": 3,
+                    "rerank_threshold": 0.4,
+                    "is_llm_rerank": False,
+                    "max_iterations": 3,
+                    "namespace_list": [],
+                },
+                "last_temperature": 0,
+                "last_max_tokens": 5120,
+                "last_base_url": os.getenv('CHAT_MODEL_DEFAULT_BASE_URL', ''),
+                "last_api_key": os.getenv('CHAT_MODEL_DEFAULT_API_KEY', ''),
+                "last_extra_body": {
+                    "chat_template_kwargs": {
+                        "enable_thinking": False
+                    }
+                },
+                "knowledge_rerank_temperature": 0,
+                "knowledge_rerank_max_tokens": 5120,
+                "knowledge_rerank_base_url": os.getenv('CHAT_MODEL_DEFAULT_BASE_URL', ''),
+                "knowledge_rerank_api_key": os.getenv('CHAT_MODEL_DEFAULT_API_KEY', ''),
+                "knowledge_rerank_extra_body": {
+                    "chat_template_kwargs": {
+                        "enable_thinking": False
+                    }
+                }
+            }
+        }
+
+    @extend_schema(
+        summary="获取可用模型列表",
+        description="获取所有可用的LLM模型列表，用于配置选择",
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'models': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'properties': {
+                                'id': {'type': 'string'},
+                                'model_id': {'type': 'string'},
+                                'provider': {'type': 'string'},
+                                'is_active': {'type': 'boolean'}
+                            }
+                        }
+                    }
+                }
+            },
+            500: {'description': '服务器错误'}
+        },
+        tags=['Bot管理']
+    )
+    @action(detail=False, methods=['get'])
+    def available_models(self, request):
+        """
+        获取可用模型列表
+        """
+        try:
+            from provider.models.provider import LLMModel
+            
+            models = LLMModel.objects.filter(is_active=True).values(
+                'id', 'model_id', 'provider', 'is_active'
+            )
+            
+            return Response({
+                'models': list(models)
+            })
+            
+        except Exception as e:
+            error_logger(f"获取模型列表失败: {str(e)}")
+            return Response(
+                {'error': f'获取模型列表失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @extend_schema(
+        summary="获取可用知识库列表",
+        description="获取当前用户可访问的知识库列表，用于配置选择",
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'namespaces': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'properties': {
+                                'id': {'type': 'integer'},
+                                'name': {'type': 'string'},
+                                'description': {'type': 'string'},
+                                'can_access': {'type': 'boolean'}
+                            }
+                        }
+                    }
+                }
+            },
+            500: {'description': '服务器错误'}
+        },
+        tags=['Bot管理']
+    )
+    @action(detail=False, methods=['get'])
+    def available_namespaces(self, request):
+        """
+        获取可用知识库列表
+        """
+        try:
+            from knowledge.models.namespace import Namespace
+            from django.db.models import Q
+            
+            user = request.user
+            
+            # 获取用户可访问的知识库
+            namespaces = Namespace.objects.filter(
+                Q(creator=user) |  # 自己创建的
+                Q(collaborators__user=user) |  # 被邀请协作的
+                Q(access_type='public')  # 公开的
+            ).distinct().filter(is_active=True).values(
+                'id', 'name', 'description'
+            )
+            
+            # 添加权限信息
+            namespace_list = []
+            for ns in namespaces:
+                namespace_obj = Namespace.objects.get(id=ns['id'])
+                namespace_list.append({
+                    'id': ns['id'],
+                    'name': ns['name'],
+                    'description': ns['description'],
+                    'can_access': namespace_obj.can_access(user)
+                })
+            
+            return Response({
+                'namespaces': namespace_list
+            })
+            
+        except Exception as e:
+            error_logger(f"获取知识库列表失败: {str(e)}")
+            return Response(
+                {'error': f'获取知识库列表失败: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
