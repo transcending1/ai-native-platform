@@ -12,7 +12,7 @@ def readme():
 
 setup(
     name="ai-native-core",             # PyPI 上的发布名
-    version="0.0.3",              # 版本
+    version="0.0.4",              # 版本
     description="A LLMOps Platform's native core",
     long_description=readme(),
     long_description_content_type="text/markdown",

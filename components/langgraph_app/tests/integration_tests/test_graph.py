@@ -1,3 +1,7 @@
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import os
 
 import pytest
@@ -13,7 +17,7 @@ def get_input_config(
     return {
         "configurable": {
             "sys_config": {
-                "tenant_id": "tenant1",
+                "tenant_id": "none",
                 "user_id": "user1",
             },
             "chat_bot_config": {

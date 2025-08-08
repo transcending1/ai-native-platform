@@ -5,7 +5,7 @@ from core.extensions.ext_langgraph import langgraph_client, GRAPH_ID
 config = {
     "configurable": {
         "sys_config": {
-            "tenant_id": "tenant1",
+            "tenant_id": "none",
             "user_id": "user1",
         },
         "chat_bot_config": {
