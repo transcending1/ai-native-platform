@@ -1,44 +1,16 @@
-from pprint import pprint
-
 import allure
-from langgraph_sdk import get_sync_client
 
-from core.extensions.ext_langgraph import GRAPH_ID
-
-name = "Open AI Assistant"
-description = "这是一个Open AI Assistant的示例"
-metadata = {
-    "owner": "admin",
-    "update_time": "2023-10-01T12:00:00Z",
-}
+from core.extensions.ext_langgraph import GRAPH_ID, get_sync_client
 
 
 def test_assistants():
     langgraph_client = get_sync_client(url="http://222.186.32.152:32710", api_key=None)
     openai_assistant_id = 'cd398240-8244-4762-98d4-6d43bfdb3df7'
-    assistant = langgraph_client.assistants.get(
-        assistant_id=openai_assistant_id
-    )
-
-    config = assistant['config']
-    print("Assistants配置如下:")
-    pprint(config)
-
-    with allure.step("获取Assistants列表"):
-        assistants = langgraph_client.assistants.search(
-            graph_id=GRAPH_ID,  # 图ID
-            limit=10,  # 每页数量
-            offset=0,  # 第几页
-            sort_by="created_at",  # 排序字段
-            sort_order='desc'  # 排序顺序，'asc' 或 'desc'
-        )
-        pprint(assistants)
 
     with allure.step("进入调试界面创建测试Thread"):
         thread = langgraph_client.threads.create(
-            metadata=metadata | {
+            metadata={
                 "assistant_id": openai_assistant_id,
-                "is_test_thread": "True"  # 标记为测试线程
             },
             graph_id=GRAPH_ID
         )
@@ -50,8 +22,8 @@ def test_assistants():
                 input={"question": "我的名字叫小明"},
                 stream_mode=["messages"]
         ):
-            print(chuck)
-
+            if stream_mode == "messages/partial":
+                print(chuck[0]['content'])
 
     with allure.step("第二轮对话:发送消息到Assistants,证明有记忆力"):
         for stream_mode, chuck in langgraph_client.runs.stream(
@@ -60,9 +32,8 @@ def test_assistants():
                 input={"question": "我的名字是啥？"},
                 stream_mode=["messages"]
         ):
-            print(chuck)
-
-
+            if stream_mode == "messages/partial":
+                print(chuck[0]['content'])
 
     with allure.step("第三轮对话:发送消息到Assistants,证明有RAG能力"):
         for stream_mode, chuck in langgraph_client.runs.stream(
@@ -71,8 +42,8 @@ def test_assistants():
                 input={"question": "爱因斯坦会议室号码是多少？"},
                 stream_mode=["messages"]
         ):
-            print(chuck)
-
+            if stream_mode == "messages/partial":
+                print(chuck[0]['content'])
 
     with allure.step("第四轮对话:发送消息到Assistants,证明有工具使用能力"):
         for stream_mode, chuck in langgraph_client.runs.stream(
@@ -81,18 +52,18 @@ def test_assistants():
                 input={"question": "北京天气是多少？"},
                 stream_mode=["messages"]
         ):
-            print(chuck)
+            if stream_mode == "messages/partial":
+                print(chuck[0]['content'])
 
-    with allure.step("下次点击调试的时候或者用户点击情况的时候重新创建测试thread"):
-        all_threads = langgraph_client.threads.search(
-            metadata={
-                "assistant_id": openai_assistant_id,
-                "is_test_thread": "True"
-            },
-            limit=10,
-            offset=0
-        )
-        for _thread in all_threads:
-            langgraph_client.threads.delete(
-                thread_id=_thread['thread_id']
-            )
+    # with allure.step("下次点击调试的时候或者用户点击情况的时候重新创建测试thread"):
+    #     all_threads = langgraph_client.threads.search(
+    #         metadata={
+    #             "assistant_id": openai_assistant_id,
+    #         },
+    #         limit=10,
+    #         offset=0
+    #     )
+    #     for _thread in all_threads:
+    #         langgraph_client.threads.delete(
+    #             thread_id=_thread['thread_id']
+    #         )

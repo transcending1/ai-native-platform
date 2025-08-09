@@ -79,6 +79,9 @@ def get_input_config(
     }
 
 
+# os.environ["LANGSMITH_TRACING"] = "true"
+# os.environ["LANGSMITH_API_KEY"] = "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"
+
 @pytest.mark.asyncio
 async def test_only_rag_in_graph() -> None:
     input_params = {

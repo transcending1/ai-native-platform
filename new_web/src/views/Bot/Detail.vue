@@ -463,6 +463,7 @@ const config = reactive({
 const chatMessages = ref([])
 const chatInput = ref('')
 const chatLoading = ref(false)
+const currentThreadId = ref('')
 
 // 处理模型选择变化
 const handleChatModelChange = (modelId) => {
@@ -604,7 +605,7 @@ const saveConfig = async () => {
   }
 }
 
-// 发送消息（模拟聊天功能）
+// 发送消息（实际聊天功能）
 const sendMessage = async () => {
   if (!chatInput.value.trim()) return
   
@@ -619,19 +620,81 @@ const sendMessage = async () => {
   chatLoading.value = true
   
   try {
-    // 这里应该调用实际的聊天API
-    // 目前只是模拟回复
-    setTimeout(() => {
-      const assistantMessage = {
-        type: 'assistant',
-        content: `这是对"${currentInput}"的回复。配置已更新，Assistant将按照新的配置进行响应。`
+    // 创建Assistant回复消息对象
+    const assistantMessage = {
+      type: 'assistant',
+      content: ''
+    }
+    chatMessages.value.push(assistantMessage)
+    
+    // 调用聊天API
+    const response = await botAPI.chat(botId, {
+      message: currentInput,
+      thread_id: currentThreadId.value || undefined
+    })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    // 读取流式响应
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    
+    while (true) {
+      const { done, value } = await reader.read()
+      
+      if (done) break
+      
+      const chunk = decoder.decode(value)
+      const lines = chunk.split('\n')
+      
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6))
+            
+            // 更新线程ID
+            if (data.thread_id && !currentThreadId.value) {
+              currentThreadId.value = data.thread_id
+            }
+            
+            // 处理流式消息
+            if (data.is_partial && data.message) {
+              // 更新当前助手消息的内容
+              const lastMessage = chatMessages.value[chatMessages.value.length - 1]
+              if (lastMessage.type === 'assistant') {
+                lastMessage.content = data.message
+              }
+            }
+            
+            // 检查是否完成
+            if (data.is_completed) {
+              chatLoading.value = false
+              break
+            }
+            
+            // 处理错误
+            if (data.error) {
+              throw new Error(data.error)
+            }
+          } catch (parseError) {
+            console.warn('解析流式数据失败:', parseError)
+          }
+        }
       }
-      chatMessages.value.push(assistantMessage)
-      chatLoading.value = false
-    }, 1000)
+    }
   } catch (error) {
     console.error('发送消息失败:', error)
-    ElMessage.error('发送消息失败')
+    ElMessage.error(`发送消息失败: ${error.message}`)
+    
+    // 移除最后的空白助手消息
+    if (chatMessages.value.length > 0 && 
+        chatMessages.value[chatMessages.value.length - 1].type === 'assistant' &&
+        !chatMessages.value[chatMessages.value.length - 1].content) {
+      chatMessages.value.pop()
+    }
+  } finally {
     chatLoading.value = false
   }
 }

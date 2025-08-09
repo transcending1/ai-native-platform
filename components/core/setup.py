@@ -12,7 +12,7 @@ def readme():
 
 setup(
     name="ai-native-core",             # PyPI 上的发布名
-    version="0.0.4",              # 版本
+    version="0.0.6",              # 版本
     description="A LLMOps Platform's native core",
     long_description=readme(),
     long_description_content_type="text/markdown",
@@ -21,15 +21,16 @@ setup(
     # url="https://github.com/your_repo/mlops_sdk",
     packages=find_packages(),     # 自动查找所有包
     install_requires=[
-        "langchain",
-        "langchain-openai",
-        "langchain-community",
-        "langchain-weaviate",
-        "langgraph",
+        "langchain~=0.3.27",
+        "langchain-openai~=0.3.28",
+        "langchain-community~=0.3.27",
+        "langchain-weaviate~=0.0.5",
+        "langgraph~=0.4.10",
+        "langgraph-prebuilt~=0.2.3",
+        "langgraph-runtime-inmem~=0.4.0",
         "allure-pytest",
         "redis",
         "tang-yuan-mlops-sdk",
-        "langchain-mcp-adapters",
         "python-dotenv",
         # 如果有其他依赖，也在此处增加
     ],

@@ -489,6 +489,23 @@ export const botAPI = {
   // 获取可用知识库列表
   getAvailableNamespaces: () => {
     return apiClient.get('/bot/bots/available_namespaces/')
+  },
+
+  // 创建聊天线程
+  createThread: (id) => {
+    return apiClient.post(`/bot/bots/${id}/create_thread/`)
+  },
+
+  // 发送聊天消息（支持流式响应）
+  chat: (id, data) => {
+    return fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/bot/bots/${id}/chat/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify(data)
+    })
   }
 }
 

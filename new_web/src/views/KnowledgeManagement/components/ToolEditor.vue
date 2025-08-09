@@ -465,13 +465,28 @@
                 :prop="param.name"
                 :rules="param.required ? [{ required: true, message: `请输入${param.name}` }] : []"
               >
-                <el-input
+                <!-- 布尔类型参数 -->
+                <el-switch 
+                  v-if="param.type === 'bool' || param.type === 'boolean'"
+                  v-model="executeForm[param.name]"
+                  :placeholder="`请选择${param.description || param.name}`"
+                />
+                <!-- 数字类型参数 -->
+                <el-input-number
+                  v-else-if="param.type === 'int' || param.type === 'integer' || param.type === 'float' || param.type === 'number'"
                   v-model="executeForm[param.name]"
                   :placeholder="`请输入${param.description || param.name}`"
-                  :type="param.type === 'number' || param.type === 'integer' ? 'number' : 'text'"
+                  :precision="param.type === 'float' || param.type === 'number' ? 2 : 0"
+                  style="width: 100%"
+                />
+                <!-- 字符串类型参数 -->
+                <el-input
+                  v-else
+                  v-model="executeForm[param.name]"
+                  :placeholder="`请输入${param.description || param.name}`"
                 />
                 <div v-if="param.description" class="text-xs text-gray-500 mt-1">
-                  {{ param.description }}
+                  {{ param.description }} (类型: {{ param.type }})
                 </div>
               </el-form-item>
             </div>
@@ -708,12 +723,64 @@ const removeExample = (index) => {
 
 // 重置执行表单
 const resetExecuteForm = () => {
-  executeForm.value = {}
+  // 初始化表单数据，为不同类型的参数设置合适的默认值
+  const formData = {}
+  inputParameters.value.forEach(param => {
+    if (param.type === 'bool' || param.type === 'boolean') {
+      formData[param.name] = false
+    } else if (param.type === 'int' || param.type === 'integer') {
+      formData[param.name] = 0
+    } else if (param.type === 'float' || param.type === 'number') {
+      formData[param.name] = 0.0
+    } else {
+      formData[param.name] = ''
+    }
+  })
+  
+  executeForm.value = formData
   executeResult.value = null
   activeExecuteTab.value = 'input'
   if (executeFormRef.value) {
     executeFormRef.value.clearValidate()
   }
+}
+
+// 数据类型转换函数
+const convertInputData = (formData) => {
+  const convertedData = {}
+  
+  inputParameters.value.forEach(param => {
+    const value = formData[param.name]
+    
+    if (value === null || value === undefined) {
+      // 跳过空值，除非是布尔类型
+      if (param.type === 'bool' || param.type === 'boolean') {
+        convertedData[param.name] = false
+      }
+      return
+    }
+    
+    switch (param.type) {
+      case 'int':
+      case 'integer':
+        convertedData[param.name] = parseInt(value) || 0
+        break
+      case 'float':
+      case 'number':
+        convertedData[param.name] = parseFloat(value) || 0.0
+        break
+      case 'bool':
+      case 'boolean':
+        convertedData[param.name] = Boolean(value)
+        break
+      case 'string':
+      default:
+        convertedData[param.name] = String(value || '')
+        break
+    }
+  })
+  
+  return convertedData
 }
 
 // 执行工具
@@ -728,11 +795,17 @@ const executeToolAction = async () => {
 
   executing.value = true
   try {
+    // 转换数据类型
+    const convertedInputData = convertInputData(executeForm.value)
+    
+    console.log('原始表单数据:', executeForm.value)
+    console.log('转换后的数据:', convertedInputData)
+    
     const response = await knowledgeAPI.executeTool(
       props.namespaceId,
       props.document.id,
       { 
-        input_data: executeForm.value,
+        input_data: convertedInputData,
         output_type: executeOutputType.value
       }
     )
@@ -845,6 +918,13 @@ watch(() => props.document, (newDocument) => {
     initEditForm()
   }
 }, { deep: true })
+
+// 监听执行对话框打开，初始化执行表单
+watch(() => showExecuteDialog.value, (isOpen) => {
+  if (isOpen) {
+    resetExecuteForm()
+  }
+})
 
 // 暴露保存方法给父组件
 defineExpose({

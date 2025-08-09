@@ -501,3 +501,180 @@ class BotAPITest(TestCase):
         self.assertEqual(Bot.objects.filter(creator=self.user1).count(), 2)
         self.assertTrue(Bot.objects.filter(assistant_id='assistant_1').exists())
         self.assertTrue(Bot.objects.filter(assistant_id='assistant_2').exists())
+
+    @patch('bot.views.bot.langgraph_client')
+    @allure.step("测试创建聊天线程")
+    def test_create_thread(self, mock_langgraph_client):
+        """测试创建聊天线程"""
+        self.authenticate_user(self.user1)
+        
+        bot = Bot.objects.create(
+            name="测试Bot",
+            creator=self.user1,
+            assistant_id="test_assistant_123"
+        )
+        
+        # 模拟LangGraph API响应
+        mock_thread = {'thread_id': 'thread_123'}
+        mock_langgraph_client.threads.create.return_value = mock_thread
+        
+        url = reverse('bot:bot-create-thread', kwargs={'pk': bot.id})
+        response = self.client.post(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['thread_id'], 'thread_123')
+        self.assertEqual(response.data['message'], '聊天线程创建成功')
+        
+        # 验证调用参数
+        mock_langgraph_client.threads.create.assert_called_once_with(
+            metadata={
+                "assistant_id": "test_assistant_123",
+                "user_id": str(self.user1.id),
+                "bot_id": str(bot.id)
+            },
+            graph_id=GRAPH_ID
+        )
+
+    @allure.step("测试创建聊天线程 - Bot不存在")
+    def test_create_thread_permission_denied(self):
+        """测试创建聊天线程 - Bot不存在或无权限访问"""
+        self.authenticate_user(self.user2)
+        
+        bot = Bot.objects.create(
+            name="私有Bot",
+            creator=self.user1,
+            assistant_id="test_assistant_123",
+            access_type='collaborators'
+        )
+        
+        url = reverse('bot:bot-create-thread', kwargs={'pk': bot.id})
+        response = self.client.post(url)
+        
+        # 由于get_queryset过滤，用户2无法看到user1的私有Bot，所以会返回404
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    @allure.step("测试创建聊天线程 - Bot未关联Assistant")
+    def test_create_thread_no_assistant(self):
+        """测试创建聊天线程 - Bot未关联Assistant"""
+        self.authenticate_user(self.user1)
+        
+        bot = Bot.objects.create(
+            name="测试Bot",
+            creator=self.user1
+        )
+        
+        url = reverse('bot:bot-create-thread', kwargs={'pk': bot.id})
+        response = self.client.post(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error'], 'Bot未关联LangGraph Assistant')
+
+    @patch('bot.views.bot.langgraph_client')
+    @allure.step("测试聊天对话API")
+    def test_chat_api(self, mock_langgraph_client):
+        """测试聊天对话API"""
+        self.authenticate_user(self.user1)
+        
+        bot = Bot.objects.create(
+            name="测试Bot",
+            creator=self.user1,
+            assistant_id="test_assistant_123"
+        )
+        
+        # 模拟流式响应
+        def mock_stream():
+            yield ("messages/partial", [{'content': '你好'}])
+            yield ("messages/partial", [{'content': '你好，'}])
+            yield ("messages/partial", [{'content': '你好，我是'}])
+            yield ("messages/partial", [{'content': '你好，我是AI助手'}])
+        
+        mock_langgraph_client.runs.stream.return_value = mock_stream()
+        mock_langgraph_client.threads.create.return_value = {'thread_id': 'thread_123'}
+        
+        url = reverse('bot:bot-chat', kwargs={'pk': bot.id})
+        data = {'message': '你好'}
+        
+        response = self.client.post(url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'text/event-stream')
+        
+        # 验证调用参数
+        mock_langgraph_client.threads.create.assert_called_once()
+        
+        # 读取流式响应内容来触发生成器的执行
+        content = b''
+        for chunk in response.streaming_content:
+            content += chunk
+        
+        # 验证流式调用被触发
+        mock_langgraph_client.runs.stream.assert_called_once()
+
+    @allure.step("测试聊天对话API - 使用现有线程")
+    def test_chat_with_existing_thread(self):
+        """测试聊天对话API - 使用现有线程"""
+        self.authenticate_user(self.user1)
+        
+        bot = Bot.objects.create(
+            name="测试Bot",
+            creator=self.user1,
+            assistant_id="test_assistant_123"
+        )
+        
+        with patch('bot.views.bot.langgraph_client') as mock_client:
+            # 模拟流式响应
+            def mock_stream():
+                yield ("messages/partial", [{'content': '这是回复'}])
+            
+            mock_client.runs.stream.return_value = mock_stream()
+            
+            url = reverse('bot:bot-chat', kwargs={'pk': bot.id})
+            data = {
+                'message': '继续对话',
+                'thread_id': 'existing_thread_123'
+            }
+            
+            response = self.client.post(url, data, format='json')
+            
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            
+            # 读取流式响应内容来触发生成器的执行
+            content = b''
+            for chunk in response.streaming_content:
+                content += chunk
+            
+            # 验证没有创建新线程
+            mock_client.threads.create.assert_not_called()
+            
+            # 验证使用了现有线程ID
+            mock_client.runs.stream.assert_called_once()
+            call_args = mock_client.runs.stream.call_args
+            self.assertEqual(call_args[1]['thread_id'], 'existing_thread_123')
+
+    @allure.step("测试聊天对话API - 消息验证")
+    def test_chat_message_validation(self):
+        """测试聊天对话API - 消息验证"""
+        self.authenticate_user(self.user1)
+        
+        bot = Bot.objects.create(
+            name="测试Bot",
+            creator=self.user1,
+            assistant_id="test_assistant_123"
+        )
+        
+        url = reverse('bot:bot-chat', kwargs={'pk': bot.id})
+        
+        # 测试空消息
+        data = {'message': ''}
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        
+        # 测试只有空白字符的消息
+        data = {'message': '   '}
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        
+        # 测试缺少message字段
+        data = {}
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

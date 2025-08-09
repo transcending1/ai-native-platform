@@ -5,9 +5,11 @@ from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.http import StreamingHttpResponse, Http404
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 import json
+import uuid
 
 from bot.models.bot import Bot, BotCollaborator
 from bot.serializers.bot import (
@@ -15,7 +17,10 @@ from bot.serializers.bot import (
     BotListSerializer,
     BotCollaboratorSerializer,
     AddCollaboratorSerializer,
-    BotBasicUpdateSerializer
+    BotBasicUpdateSerializer,
+    ChatMessageSerializer,
+    ChatResponseSerializer,
+    ThreadSerializer
 )
 from core.extensions.ext_langgraph import langgraph_client, GRAPH_ID
 from llm_api.settings.base import error_logger, info_logger, warning_logger
@@ -954,5 +959,207 @@ class BotViewSet(viewsets.ModelViewSet):
             error_logger(f"获取知识库列表失败: {str(e)}")
             return Response(
                 {'error': f'获取知识库列表失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @extend_schema(
+        summary="创建聊天线程",
+        description="为Bot创建一个新的聊天线程",
+        responses={
+            201: {
+                'type': 'object',
+                'properties': {
+                    'thread_id': {'type': 'string', 'description': '线程ID'},
+                    'message': {'type': 'string', 'description': '创建结果消息'}
+                }
+            },
+            403: {'description': '无权限操作'},
+            404: {'description': 'Bot不存在'},
+            500: {'description': '服务器错误'}
+        },
+        tags=['Bot管理']
+    )
+    @action(detail=True, methods=['post'])
+    def create_thread(self, request, pk=None):
+        """
+        创建聊天线程
+        """
+        try:
+            bot = self.get_object()
+            
+            # 检查权限
+            if not bot.can_access(request.user):
+                return Response(
+                    {'error': '您没有权限访问此Bot'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            if not bot.assistant_id:
+                return Response(
+                    {'error': 'Bot未关联LangGraph Assistant'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # 创建线程
+            thread = langgraph_client.threads.create(
+                metadata={
+                    "assistant_id": bot.assistant_id,
+                    "user_id": str(request.user.id),
+                    "bot_id": str(bot.id)
+                },
+                graph_id=GRAPH_ID
+            )
+            
+            info_logger(f"用户 {request.user.username} 为Bot {bot.name} 创建了聊天线程: {thread['thread_id']}")
+            
+            return Response({
+                'thread_id': thread['thread_id'],
+                'message': '聊天线程创建成功'
+            }, status=status.HTTP_201_CREATED)
+            
+        except Http404:
+            return Response(
+                {'error': 'Bot不存在'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            error_logger(f"创建聊天线程失败: {str(e)}")
+            return Response(
+                {'error': f'创建聊天线程失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @extend_schema(
+        summary="发送聊天消息",
+        description="向Bot发送消息并获取流式回复",
+        request=ChatMessageSerializer,
+        responses={
+            200: {
+                'type': 'string',
+                'format': 'binary',
+                'description': 'Server-Sent Events流式数据'
+            },
+            400: {'description': '请求参数错误'},
+            403: {'description': '无权限操作'},
+            404: {'description': 'Bot不存在'},
+            500: {'description': '服务器错误'}
+        },
+        tags=['Bot管理']
+    )
+    @action(detail=True, methods=['post'])
+    def chat(self, request, pk=None):
+        """
+        与Bot进行聊天对话，支持流式输出
+        """
+        try:
+            bot = self.get_object()
+            
+            # 检查权限
+            if not bot.can_access(request.user):
+                return Response(
+                    {'error': '您没有权限访问此Bot'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            if not bot.assistant_id:
+                return Response(
+                    {'error': 'Bot未关联LangGraph Assistant'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # 验证请求数据
+            serializer = ChatMessageSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            message = serializer.validated_data['message']
+            thread_id = serializer.validated_data.get('thread_id')
+            
+            # 如果没有提供thread_id，创建新线程
+            if not thread_id:
+                thread = langgraph_client.threads.create(
+                    metadata={
+                        "assistant_id": bot.assistant_id,
+                        "user_id": str(request.user.id),
+                        "bot_id": str(bot.id)
+                    },
+                    graph_id=GRAPH_ID
+                )
+                thread_id = thread['thread_id']
+                info_logger(f"为用户 {request.user.username} 创建新线程: {thread_id}")
+            
+            def generate_response():
+                """
+                生成流式响应
+                """
+                try:
+                    info_logger(f"开始生成流式响应，thread_id: {thread_id}, assistant_id: {bot.assistant_id}")
+                    
+                    # 发送消息并获取流式响应
+                    stream_count = 0
+                    for stream_mode, chunk in langgraph_client.runs.stream(
+                        thread_id=thread_id,
+                        assistant_id=bot.assistant_id,
+                        input={"question": message},
+                        stream_mode=["messages"]
+                    ):
+                        stream_count += 1
+                        info_logger(f"收到流式数据 #{stream_count}: mode={stream_mode}, chunk={chunk}")
+                        
+                        if stream_mode == "messages/partial":
+                            if chunk and len(chunk) > 0:
+                                content = chunk[0].get('content', '')
+                                info_logger(f"提取内容: {content}")
+                                if content:
+                                    # 构造SSE格式的响应
+                                    data = {
+                                        "thread_id": thread_id,
+                                        "message": content,
+                                        "is_partial": True,
+                                        "is_completed": False
+                                    }
+                                    yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+                    
+                    info_logger(f"流式响应结束，总共收到 {stream_count} 个数据块")
+                    
+                    # 发送完成标志
+                    final_data = {
+                        "thread_id": thread_id,
+                        "message": "",
+                        "is_partial": False,
+                        "is_completed": True
+                    }
+                    yield f"data: {json.dumps(final_data, ensure_ascii=False)}\n\n"
+                    
+                except Exception as e:
+                    error_logger(f"聊天流式响应生成失败: {str(e)}")
+                    import traceback
+                    error_logger(f"错误详情: {traceback.format_exc()}")
+                    error_data = {
+                        "thread_id": thread_id,
+                        "error": f"聊天失败: {str(e)}",
+                        "is_partial": False,
+                        "is_completed": True
+                    }
+                    yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+            
+            info_logger(f"用户 {request.user.username} 向Bot {bot.name} 发送消息: {message[:50]}...")
+            
+            # 返回流式响应
+            response = StreamingHttpResponse(
+                generate_response(),
+                content_type='text/event-stream'
+            )
+            response['Cache-Control'] = 'no-cache'
+            response['X-Accel-Buffering'] = 'no'  # 禁用nginx缓冲
+            response['Access-Control-Allow-Origin'] = '*'
+            response['Access-Control-Allow-Headers'] = 'Cache-Control'
+            
+            return response
+            
+        except Exception as e:
+            error_logger(f"聊天请求处理失败: {str(e)}")
+            return Response(
+                {'error': f'聊天请求处理失败: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

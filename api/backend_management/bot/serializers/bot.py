@@ -245,3 +245,44 @@ class BotBasicUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Bot
         fields = ['name', 'description', 'avatar', 'access_type']
+
+
+class ChatMessageSerializer(serializers.Serializer):
+    """
+    聊天消息序列化器
+    """
+    message = serializers.CharField(
+        max_length=10000,
+        help_text="用户输入的消息内容"
+    )
+    thread_id = serializers.CharField(
+        required=False,
+        help_text="会话线程ID，如果不提供将创建新线程"
+    )
+
+    def validate_message(self, value):
+        """
+        验证消息内容
+        """
+        if not value.strip():
+            raise serializers.ValidationError("消息内容不能为空")
+        return value.strip()
+
+
+class ChatResponseSerializer(serializers.Serializer):
+    """
+    聊天响应序列化器
+    """
+    thread_id = serializers.CharField(help_text="会话线程ID")
+    message = serializers.CharField(help_text="回复消息内容")
+    is_partial = serializers.BooleanField(help_text="是否为流式输出的部分内容")
+    is_completed = serializers.BooleanField(help_text="是否为完整的回复")
+
+
+class ThreadSerializer(serializers.Serializer):
+    """
+    线程序列化器
+    """
+    thread_id = serializers.CharField(help_text="线程ID")
+    created_at = serializers.DateTimeField(help_text="创建时间")
+    metadata = serializers.DictField(help_text="线程元数据")

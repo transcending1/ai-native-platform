@@ -1,7 +1,7 @@
 langchain~=0.3.27
 langchain-openai~=0.3.28
 langchain-community~=0.3.27
-langgraph~=0.6.2
+langgraph~=0.4.10
 allure-pytest~=2.14.1
 redis~=6.0.0
 tang-yuan-mlops-sdk

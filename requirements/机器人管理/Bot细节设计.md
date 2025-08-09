@@ -120,3 +120,56 @@ api/backend_management/core/extensions/tests/integration_tests/test_langgraph_sd
             config=config,  # 上面的配置文件组合起来的内容
         )
 8. 右侧（预览与调试对话框）：Assistant调试的对话框 默认画一个即可，没必要立刻生效，还在调试Bot的对话框。默认画一个与Bot对话的窗口即可。
+
+
+## 最新版需求
+1. 右侧（预览与调试对话框）：Assistant调试的对话框需要支持和Bot的对话了。Stream展示Bot对话的内容。（说明：右侧调试就是简单的用户输入文字，点击发送按钮，Bot就会返回对话内容。Bot的对话内容需要支持Stream输出。）
+2. 用户输入问题后服务端处理逻辑：
+a. 先创建一个线程Thread:
+```python
+from langgraph_sdk import get_sync_client
+from core.extensions.ext_langgraph import GRAPH_ID, langgraph_client
+openai_assistant_id = 'cd398240-8244-4762-98d4-6d43bfdb3df7' # Bot的id.这是个测试用例。
+thread = langgraph_client.threads.create(
+    metadata={
+        "assistant_id": openai_assistant_id,
+    },
+    graph_id=GRAPH_ID
+)
+# 第一轮对话:发送消息到Assistants
+for stream_mode, chuck in langgraph_client.runs.stream(
+        thread_id=thread['thread_id'],
+        assistant_id=openai_assistant_id,
+        input={"question": "我的名字叫小明"},
+        stream_mode=["messages"]
+):
+    if stream_mode == "messages/partial":
+        print(chuck[0]['content'])
+# 第二轮对话:发送消息到Assistants,证明有记忆力
+for stream_mode, chuck in langgraph_client.runs.stream(
+        thread_id=thread['thread_id'],
+        assistant_id=openai_assistant_id,
+        input={"question": "我的名字是啥？"},
+        stream_mode=["messages"]
+):
+    if stream_mode == "messages/partial":
+        print(chuck[0]['content'])
+# 第三轮对话:发送消息到Assistants,证明有RAG能力
+for stream_mode, chuck in langgraph_client.runs.stream(
+        thread_id=thread['thread_id'],
+        assistant_id=openai_assistant_id,
+        input={"question": "爱因斯坦会议室号码是多少？"},
+        stream_mode=["messages"]
+):
+    if stream_mode == "messages/partial":
+        print(chuck[0]['content'])
+# 第四轮对话:发送消息到Assistants,证明有工具使用能力
+for stream_mode, chuck in langgraph_client.runs.stream(
+        thread_id=thread['thread_id'],
+        assistant_id=openai_assistant_id,
+        input={"question": "北京天气是多少？"},
+        stream_mode=["messages"]
+):
+    if stream_mode == "messages/partial":
+        print(chuck[0]['content'])
+```
