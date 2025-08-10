@@ -12,7 +12,7 @@ stages:
     displayName: 准备环境
     strategy: naturally
     trigger: auto
-    executor: [ ]
+    executor: []
     steps:
       - step: shell@agent
         name: prepare_environment
@@ -40,8 +40,6 @@ stages:
           - ls -la
           - '# 安装Python依赖'
           - echo "=== 安装Python依赖 ==="
-          #          - python3 -m pip install --upgrade pip
-          #          - pip3 install alibabacloud-oss-v2
           - '# 设置脚本权限'
           - chmod +x deploy.sh version_manager.py oss_manager.py
           - '# 验证工具'
@@ -51,15 +49,14 @@ stages:
           - helm version --client
           - ctr version
           - python3 --version
-        notify: [ ]
+        notify: []
         strategy:
           retry: '0'
-
   - name: version_management
     displayName: 版本管理
     strategy: naturally
     trigger: auto
-    executor: [ ]
+    executor: []
     steps:
       - step: shell@agent
         name: increment_version
@@ -81,15 +78,14 @@ stages:
           - echo "=== 版本信息 ==="
           - cat build/version.env
           - cat build_version.json
-        notify: [ ]
+        notify: []
         strategy:
           retry: '0'
-
   - name: build_images
     displayName: 构建Docker镜像
     strategy: naturally
     trigger: auto
-    executor: [ ]
+    executor: []
     steps:
       - step: shell@agent
         name: build_docker_images
@@ -126,23 +122,16 @@ stages:
           - gzip "build/vue-frontend-${BUILD_TAG}.tar"
           - '# 生成构建报告'
           - echo "=== 构建报告 ==="
-          #          - echo "构建时间: $(date)"
-          #          - echo "Git分支: $CI_COMMIT_REF_NAME"
-          #          - echo "Git提交: $CI_COMMIT_SHA"
-          #          - echo "版本号: $VERSION"
-          #          - echo "构建号: $BUILD_NUMBER"
-          #          - echo "构建标签: $BUILD_TAG"
           - docker images | grep -E "(django-backend|vue-frontend)"
           - ls -la build/
-        notify: [ ]
+        notify: []
         strategy:
           retry: '0'
-
   - name: deploy_k8s
     displayName: 部署到Kubernetes
     strategy: naturally
     trigger: auto
-    executor: [ ]
+    executor: []
     steps:
       - step: shell@agent
         name: deploy_to_kubernetes
@@ -172,6 +161,6 @@ stages:
           - echo "=== 清理临时文件 ==="
           - rm -rf temp/
           - echo "=== 部署完成 ==="
-        notify: [ ]
+        notify: []
         strategy:
           retry: '0'
