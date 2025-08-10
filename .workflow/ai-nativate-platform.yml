@@ -6,7 +6,7 @@ triggers:
   push:
     branches:
       prefix:
-        - master
+        - main
 stages:
   - name: prepare
     displayName: 准备环境
