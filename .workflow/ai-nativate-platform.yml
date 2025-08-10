@@ -1,0 +1,255 @@
+version: '1.0'
+name: ai-nativate-platform
+displayName: ai-nativate-platform
+triggers:
+  trigger: manual
+  push:
+    branches:
+      prefix:
+        - master
+stages:
+  - name: prepare
+    displayName: 准备环境
+    strategy: naturally
+    trigger: auto
+    executor: [ ]
+    steps:
+      - step: shell@agent
+        name: prepare_environment
+        displayName: 环境准备和依赖安装
+        hostGroupID:
+          ID: 主机1
+          hostID:
+            - 6d479b1a-24dc-4d78-8908-f78492e05b96
+        script:
+          - '# 准备构建环境'
+          - echo "=== 准备构建环境 ==="
+          - mkdir -p /home/ubuntu/jupyter_home/projects
+          - cd /home/ubuntu/jupyter_home/projects
+          - pwd
+          - '# 清理旧的项目目录'
+          - if [ -d "ai-native-platform" ]; then rm -rf ai-native-platform; fi
+          - '# 克隆代码'
+          - echo "=== 克隆项目代码 ==="
+          - git clone git@gitee.com:tangyuan_3/ai-native-platform.git
+          - cd ai-native-platform
+          - git checkout $CI_COMMIT_SHA
+          - '# 显示项目信息'
+          - echo "=== 项目信息 ==="
+          - pwd
+          - ls -la
+          - '# 安装Python依赖'
+          - echo "=== 安装Python依赖 ==="
+          #          - python3 -m pip install --upgrade pip
+          #          - pip3 install alibabacloud-oss-v2
+          - '# 设置脚本权限'
+          - chmod +x deploy.sh version_manager.py oss_manager.py
+          - '# 验证工具'
+          - echo "=== 验证构建工具 ==="
+          - docker --version
+          - kubectl version --client
+          - helm version --client
+          - ctr version
+          - python3 --version
+        notify: [ ]
+        strategy:
+          retry: '0'
+
+  - name: version_management
+    displayName: 版本管理
+    strategy: naturally
+    trigger: auto
+    executor: [ ]
+    steps:
+      - step: shell@agent
+        name: increment_version
+        displayName: 递增版本号
+        hostGroupID:
+          ID: 主机1
+          hostID:
+            - 6d479b1a-24dc-4d78-8908-f78492e05b96
+        script:
+          - '# 切换到项目目录'
+          - cd /home/ubuntu/jupyter_home/projects/ai-native-platform
+          - '# 递增版本号'
+          - echo "=== 版本管理 ==="
+          - python3 version_manager.py build
+          - '# 导出版本环境变量'
+          - mkdir -p build
+          - python3 version_manager.py export --output build/version.env
+          - '# 显示版本信息'
+          - echo "=== 版本信息 ==="
+          - cat build/version.env
+          - cat build_version.json
+        notify: [ ]
+        strategy:
+          retry: '0'
+
+  - name: build_images
+    displayName: 构建Docker镜像
+    strategy: naturally
+    trigger: auto
+    executor: [ ]
+    steps:
+      - step: shell@agent
+        name: build_docker_images
+        displayName: 构建前后端镜像并保存为tar包
+        hostGroupID:
+          ID: 主机1
+          hostID:
+            - 6d479b1a-24dc-4d78-8908-f78492e05b96
+        script:
+          - '# 切换到项目目录'
+          - cd /home/ubuntu/jupyter_home/projects/ai-native-platform
+          - '# 生成版本信息'
+          - mkdir -p build
+          - python3 version_manager.py export --output build/version.env
+          - . build/version.env
+          - '# 构建后端镜像'
+          - echo "=== 构建Django后端镜像 ==="
+          - cd api/backend_management
+          - docker build --build-arg VERSION="$VERSION" --build-arg BUILD_NUMBER="$BUILD_NUMBER" --build-arg BUILD_TIMESTAMP="$BUILD_TIMESTAMP" -t "django-backend:${BUILD_TAG}" -t "django-backend:latest" .
+          - cd ../../
+          - '# 构建前端镜像'
+          - echo "=== 构建Vue3前端镜像 ==="
+          - cd new_web
+          - docker build --build-arg VERSION="$VERSION" --build-arg BUILD_NUMBER="$BUILD_NUMBER" --build-arg BUILD_TIMESTAMP="$BUILD_TIMESTAMP" -t "vue-frontend:${BUILD_TAG}" -t "vue-frontend:latest" .
+          - cd ../
+          - '# 保存镜像为tar包'
+          - echo "=== 保存镜像为tar包 ==="
+          - mkdir -p build
+          - echo "保存后端镜像..."
+          - docker save "django-backend:${BUILD_TAG}" -o "build/django-backend-${BUILD_TAG}.tar"
+          - gzip "build/django-backend-${BUILD_TAG}.tar"
+          - echo "保存前端镜像..."
+          - docker save "vue-frontend:${BUILD_TAG}" -o "build/vue-frontend-${BUILD_TAG}.tar"
+          - gzip "build/vue-frontend-${BUILD_TAG}.tar"
+          - '# 生成构建报告'
+          - echo "=== 构建报告 ==="
+          #          - echo "构建时间: $(date)"
+          #          - echo "Git分支: $CI_COMMIT_REF_NAME"
+          #          - echo "Git提交: $CI_COMMIT_SHA"
+          #          - echo "版本号: $VERSION"
+          #          - echo "构建号: $BUILD_NUMBER"
+          #          - echo "构建标签: $BUILD_TAG"
+          - docker images | grep -E "(django-backend|vue-frontend)"
+          - ls -la build/
+        notify: [ ]
+        strategy:
+          retry: '0'
+
+  - name: upload_oss
+    displayName: 上传到OSS
+    strategy: naturally
+    trigger: auto
+    executor: [ ]
+    steps:
+      - step: shell@agent
+        name: upload_to_oss
+        displayName: 上传镜像到OSS
+        hostGroupID:
+          ID: 主机1
+          hostID:
+            - 6d479b1a-24dc-4d78-8908-f78492e05b96
+        script:
+          - '# 设置OSS环境变量'
+          - export OSS_BUCKET="dkytest"
+          - export OSS_REGION="cn-beijing"
+          - export OSS_ACCESS_KEY_ID="LTAI5t7iEsihN1Zq2EnC5ZKM"
+          - export OSS_ACCESS_KEY_SECRET="6kA9Lq8cao3IL4ZqT8ullVkyB3rcq4"
+          - export OSS_ENDPOINT="https://oss-cn-beijing.aliyuncs.com"
+          - '# 切换到项目目录'
+          - cd /home/ubuntu/jupyter_home/projects/ai-native-platform
+          - '# 生成/加载版本信息'
+          - mkdir -p build
+          - . build/version.env || python3 version_manager.py export --output build/version.env && . build/version.env
+          #          - echo "上传版本: $BUILD_TAG"
+          - '# 上传后端镜像'
+          - echo "=== 上传后端镜像到OSS ==="
+          - python3 oss_manager.py upload "build/django-backend-${BUILD_TAG}.tar.gz" --key "docker-images/backend/django-backend-${BUILD_TAG}.tar.gz"
+          - '# 上传前端镜像'
+          - echo "=== 上传前端镜像到OSS ==="
+          - python3 oss_manager.py upload "build/vue-frontend-${BUILD_TAG}.tar.gz" --key "docker-images/frontend/vue-frontend-${BUILD_TAG}.tar.gz"
+          - '# 生成上传报告'
+          - echo "=== OSS上传报告 ==="
+          #          - echo "OSS上传时间: $(date)"
+          #          - echo "版本标签: $BUILD_TAG"
+          #          - echo "OSS Bucket: $OSS_BUCKET"
+          - echo "上传文件:"
+          - echo "  docker-images/backend/django-backend-${BUILD_TAG}.tar.gz"
+          - echo "  docker-images/frontend/vue-frontend-${BUILD_TAG}.tar.gz"
+        notify: [ ]
+        strategy:
+          retry: '0'
+
+  - name: deploy_k8s
+    displayName: 部署到Kubernetes
+    strategy: naturally
+    trigger: auto
+    executor: [ ]
+    steps:
+      - step: shell@agent
+        name: deploy_to_kubernetes
+        displayName: Helm部署到K8s
+        hostGroupID:
+          ID: 主机1
+          hostID:
+            - 6d479b1a-24dc-4d78-8908-f78492e05b96
+        script:
+          - '# 设置OSS环境变量'
+          - export OSS_BUCKET="dkytest"
+          - export OSS_REGION="cn-beijing"
+          - export OSS_ACCESS_KEY_ID="LTAI5t7iEsihN1Zq2EnC5ZKM"
+          - export OSS_ACCESS_KEY_SECRET="6kA9Lq8cao3IL4ZqT8ullVkyB3rcq4"
+          - export OSS_ENDPOINT="https://oss-cn-beijing.aliyuncs.com"
+          - export NAMESPACE="ai-platform"
+          - '# 切换到项目目录'
+          - cd /home/ubuntu/jupyter_home/projects/ai-native-platform
+          - '# 加载版本信息'
+          - . build/version.env || python3 version_manager.py export --output build/version.env && . build/version.env
+          #          - echo "部署版本: $BUILD_TAG"
+          - '# 从OSS下载镜像'
+          - echo "=== 从OSS下载镜像 ==="
+          - mkdir -p temp
+          - echo "下载后端镜像..."
+          - python3 oss_manager.py download "docker-images/backend/django-backend-${BUILD_TAG}.tar.gz" --output "temp/django-backend-${BUILD_TAG}.tar.gz"
+          - echo "下载前端镜像..."
+          - python3 oss_manager.py download "docker-images/frontend/vue-frontend-${BUILD_TAG}.tar.gz" --output "temp/vue-frontend-${BUILD_TAG}.tar.gz"
+          - '# 解压并加载镜像到containerd'
+          - echo "=== 加载镜像到containerd ==="
+          - echo "加载后端镜像..."
+          - gunzip -c "temp/django-backend-${BUILD_TAG}.tar.gz" > "temp/django-backend-${BUILD_TAG}.tar"
+          - ctr -n k8s.io images import "temp/django-backend-${BUILD_TAG}.tar"
+          - echo "加载前端镜像..."
+          - gunzip -c "temp/vue-frontend-${BUILD_TAG}.tar.gz" > "temp/vue-frontend-${BUILD_TAG}.tar"
+          - ctr -n k8s.io images import "temp/vue-frontend-${BUILD_TAG}.tar"
+          - '# 验证镜像加载'
+          - echo "=== 验证镜像加载 ==="
+          - ctr -n k8s.io images list | grep -E "(django-backend|vue-frontend)"
+          - '# 更新Helm仓库'
+          - echo "=== 更新Helm仓库 ==="
+          - helm repo add azure http://mirror.azure.cn/kubernetes/charts || true
+          - helm repo update
+          - '# 部署后端'
+          - echo "=== 部署Django后端 ==="
+          - cd api/backend_management
+          - helm dependency update ./helm --debug
+          - helm upgrade --install django-backend ./helm --namespace "$NAMESPACE" --create-namespace --set django.image.tag="$BUILD_TAG" --set version="$VERSION" --set buildNumber="$BUILD_NUMBER" --wait --timeout=600s
+          - cd ../../
+          - '# 部署前端'
+          - echo "=== 部署Vue3前端 ==="
+          - cd new_web
+          - helm upgrade --install vue-frontend ./helm --namespace "$NAMESPACE" --create-namespace --set vue.image.tag="$BUILD_TAG" --set version="$VERSION" --set buildNumber="$BUILD_NUMBER" --wait --timeout=300s
+          - cd ../
+          - '# 验证部署'
+          - echo "=== 验证部署状态 ==="
+          - kubectl get pods -n "$NAMESPACE" -o wide
+          - kubectl get svc -n "$NAMESPACE"
+          - kubectl get ingress -n "$NAMESPACE" || echo "无Ingress配置"
+          - '# 清理临时文件'
+          - echo "=== 清理临时文件 ==="
+          - rm -rf temp/
+          - echo "=== 部署完成 ==="
+        notify: [ ]
+        strategy:
+          retry: '0'
