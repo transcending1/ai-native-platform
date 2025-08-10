@@ -509,4 +509,25 @@ export const botAPI = {
   }
 }
 
+// 首页统计相关API
+export const summaryAPI = {
+  // 获取用户统计数据
+  getUserStats: () => apiClient.get('/summary/user-stats/'),
+  
+  // 获取首页仪表板数据
+  getDashboard: () => apiClient.get('/summary/user-stats/dashboard/'),
+  
+  // 刷新用户统计数据
+  refreshUserStats: () => apiClient.post('/summary/user-stats/refresh/'),
+  
+  // 获取平台统计数据
+  getPlatformStats: () => apiClient.get('/summary/platform-stats/'),
+  
+  // 获取最新平台统计数据
+  getLatestPlatformStats: () => apiClient.get('/summary/platform-stats/latest/'),
+  
+  // 生成今日平台统计
+  generateTodayStats: () => apiClient.post('/summary/platform-stats/generate_today/')
+}
+
 export default apiClient;

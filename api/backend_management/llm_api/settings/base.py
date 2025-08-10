@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'knowledge',
     'provider',
     'bot',
+    'summary',
 ]
 
 MIDDLEWARE = [
