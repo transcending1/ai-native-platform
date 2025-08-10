@@ -1,0 +1,116 @@
+# Django应用配置
+django:
+  image:
+    repository: docker.io/library/django-backend
+    tag: latest
+    pullPolicy: Never
+  
+  replicaCount: 2
+  
+  service:
+    type: NodePort
+    port: 8000
+    targetPort: 8000
+    nodePort: 30081
+  
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /
+    hosts:
+      - host: api.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  
+  env:
+    - name: DJANGO_SETTINGS_MODULE
+      value: "llm_api.settings.dev_settings"
+    - name: DEBUG
+      value: "False"
+    - name: DB_HOST
+      value: "django-backend-postgresql"
+    - name: DB_PORT
+      value: "5432"
+    - name: DB_NAME
+      value: "postgres"
+    - name: DB_USER
+      value: "postgres"
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: django-backend-postgresql
+          key: postgresql-password
+    - name: REDIS_URL
+      value: "redis://django-backend-redis-master:6379/0"
+    - name: REDIS_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: django-backend-redis
+          key: redis-password
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  
+  livenessProbe:
+    httpGet:
+      path: /admin/
+      port: 8000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  
+  readinessProbe:
+    httpGet:
+      path: /admin/
+      port: 8000
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+# PostgreSQL配置
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "postgres123"
+    username: "django_user"
+    password: "django123"
+    database: "postgres"
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 200m
+        memory: 256Mi
+
+# Redis配置
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: "redis123"
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+# 应用版本信息
+version: "1.0.0"
+buildNumber: "1" 

@@ -1,0 +1,15 @@
+apiVersion: v2
+name: django-backend
+description: A Helm chart for Django Backend with PostgreSQL and Redis
+type: application
+version: 0.1.0
+appVersion: "1.0"
+
+dependencies:
+  - name: postgresql
+    version: "8.6.4"
+    repository: http://mirror.azure.cn/kubernetes/charts
+    condition: postgresql.enabled
+  - name: redis
+    version: "10.5.7"
+    repository: http://mirror.azure.cn/kubernetes/charts

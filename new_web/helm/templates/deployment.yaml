@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "vue-frontend.fullname" . }}
+  labels:
+    {{- include "vue-frontend.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.vue.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "vue-frontend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "vue-frontend.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.vue.image.repository }}:{{ .Values.vue.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.vue.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.vue.service.targetPort }}
+              protocol: TCP
+          {{- if .Values.vue.env }}
+          env:
+            {{- toYaml .Values.vue.env | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.vue.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.vue.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.vue.resources | nindent 12 }} 

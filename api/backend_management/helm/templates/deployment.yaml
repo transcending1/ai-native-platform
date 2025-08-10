@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "django-backend.fullname" . }}
+  labels:
+    {{- include "django-backend.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.django.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "django-backend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "django-backend.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.django.image.repository }}:{{ .Values.django.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.django.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.django.service.targetPort }}
+              protocol: TCP
+          env:
+            {{- toYaml .Values.django.env | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.django.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.django.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.django.resources | nindent 12 }}
+          volumeMounts:
+            - name: static-files
+              mountPath: /app/static
+            - name: media-files
+              mountPath: /app/media
+      volumes:
+        - name: static-files
+          emptyDir: {}
+        - name: media-files
+          persistentVolumeClaim:
+            claimName: {{ include "django-backend.fullname" . }}-media

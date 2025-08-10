@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "vue-frontend.fullname" . }}
+  labels:
+    {{- include "vue-frontend.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.vue.service.type }}
+  ports:
+    - port: {{ .Values.vue.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+      {{- if and (eq .Values.vue.service.type "NodePort") .Values.vue.service.nodePort }}
+      nodePort: {{ .Values.vue.service.nodePort }}
+      {{- end }}
+  selector:
+    {{- include "vue-frontend.selectorLabels" . | nindent 4 }}

@@ -1,0 +1,57 @@
+# Vue应用配置
+vue:
+  image:
+    repository: vue-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  replicaCount: 2
+  
+  # 环境变量配置
+  env:
+    - name: API_BASE_URL
+      value: "http://222.186.32.152:30081"
+  
+  service:
+    type: NodePort
+    port: 80
+    targetPort: 8080
+    nodePort: 30082  # 前端使用30082端口，避免与后端30081冲突
+
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /
+    hosts:
+      - host: frontend.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+# 应用版本信息
+version: "1.0.0"
+buildNumber: "1"
